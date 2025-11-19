@@ -43,7 +43,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'lg' }) => {
       <div className="flex min-h-screen items-center justify-center p-4">
         {/* Modal Content */}
         <div
-          className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-900 rounded-xl shadow-2xl transform transition-all`}
+          className={`relative w-full ${sizeClasses[size]} bg-background-card dark:bg-gray-900 rounded-xl shadow-2xl transform transition-all`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

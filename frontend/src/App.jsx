@@ -69,7 +69,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-gray-900">
         <div className="text-center">
           <Spinner size="lg" />
           <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
@@ -90,7 +90,7 @@ function App() {
           path="/"
           element={
             user ? (
-              <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-theme">
+              <div className="flex flex-col h-screen bg-background-light dark:bg-gray-900 transition-theme">
                 {/* Header */}
                 <Header user={user} onLogout={handleLogout} />
 
@@ -137,7 +137,7 @@ function App() {
           path="/enriched-tables"
           element={
             user ? (
-              <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-theme">
+              <div className="flex flex-col h-screen bg-background-light dark:bg-gray-900 transition-theme">
                 {/* Header */}
                 <Header user={user} onLogout={handleLogout} />
 

@@ -165,7 +165,7 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
                   placeholder="Search by name, catalog, or schema..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-background-card dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
             </div>
@@ -178,7 +178,7 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
               <select
                 value={selectedCatalog}
                 onChange={(e) => setSelectedCatalog(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-background-card dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="">All Catalogs</option>
                 {catalogs.map((catalog) => (
@@ -197,7 +197,7 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
               <select
                 value={selectedSchema}
                 onChange={(e) => setSelectedSchema(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-background-card dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="">All Schemas</option>
                 {schemas.map((schema) => (
@@ -252,7 +252,7 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-background-card dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredTables.map((table) => (
                   <tr
                     key={table.full_name}

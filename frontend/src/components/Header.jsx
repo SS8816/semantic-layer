@@ -21,7 +21,7 @@ const Header = ({ user, onLogout, generationProgress }) => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm transition-theme">
+    <header className="sticky top-0 z-50 bg-background-card dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm transition-theme">
       <div className="px-6 py-3">
         <div className="flex items-center justify-between">
           {/* Left: Logo, Title, and Navigation */}

@@ -249,7 +249,7 @@ const MetadataViewer = ({ tableName }) => {
             <select
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-background-card dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               autoFocus
             >
               {options.map((opt) => (
@@ -280,7 +280,7 @@ const MetadataViewer = ({ tableName }) => {
               type="text"
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-background-card dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSaveEdit(columnName, field);
@@ -534,7 +534,7 @@ const MetadataViewer = ({ tableName }) => {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-background-card dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {Object.entries(metadata.columns).map(([columnName, columnData], idx) => (
                 <tr
                   key={columnName}
@@ -629,7 +629,7 @@ const MetadataViewer = ({ tableName }) => {
           onClick={handleCloseStats}
         >
           <div
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full"
+            className="bg-background-card dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
