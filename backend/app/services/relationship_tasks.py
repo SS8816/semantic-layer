@@ -245,11 +245,8 @@ async def detect_and_store_relationships(
     try:
         logger.info(f"🔍 Starting relationship detection for {table_identifier}")
 
-        # Step 0: Update status to IN_PROGRESS
+        # Note: Status is already set to IN_PROGRESS by metadata_generator before this runs
         full_table_name = f"{catalog}.{schema}.{table_name}"
-        dynamodb_service.update_relationship_detection_status(
-            full_table_name, RelationshipDetectionStatus.IN_PROGRESS
-        )
 
         # Give DynamoDB a moment to propagate the metadata
         await asyncio.sleep(3)
