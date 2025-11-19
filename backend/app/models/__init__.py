@@ -6,7 +6,8 @@ from app.models.table import (
     TableSummary,
     TableWithColumns,
     SchemaStatus,
-    SchemaChange
+    SchemaChange,
+    RelationshipDetectionStatus
 )
 from app.models.column import (
     ColumnMetadata,
@@ -35,6 +36,7 @@ __all__ = [
     "TableWithColumns",
     "SchemaStatus",
     "SchemaChange",
+    "RelationshipDetectionStatus",
     # Column models
     "ColumnMetadata",
     "ColumnMetadataCreate",

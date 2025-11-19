@@ -229,6 +229,7 @@ FIXED version with better error handling
 import asyncio
 from typing import Any, Dict, List
 
+from app.models import RelationshipDetectionStatus
 from app.services.dynamodb import dynamodb_service
 from app.services.dynamodb_relationships import relationships_service
 from app.services.relationship_detector import relationship_detector
@@ -242,13 +243,18 @@ async def detect_and_store_relationships(
     Background task to detect relationships and store in DynamoDB
     """
     try:
-        logger.info(f" Starting relationship detection for {table_identifier}")
+        logger.info(f"🔍 Starting relationship detection for {table_identifier}")
+
+        # Step 0: Update status to IN_PROGRESS
+        full_table_name = f"{catalog}.{schema}.{table_name}"
+        dynamodb_service.update_relationship_detection_status(
+            full_table_name, RelationshipDetectionStatus.IN_PROGRESS
+        )
 
         # Give DynamoDB a moment to propagate the metadata
         await asyncio.sleep(3)
 
         # Step 1: Get metadata for the new table (ALL columns)
-        full_table_name = f"{catalog}.{schema}.{table_name}"
         new_table_metadata_raw = dynamodb_service.get_all_columns_for_table(
             full_table_name
         )
@@ -256,6 +262,10 @@ async def detect_and_store_relationships(
         if not new_table_metadata_raw:
             logger.warning(
                 f"No metadata found for {full_table_name}, skipping relationship detection"
+            )
+            # Reset to NOT_STARTED since we couldn't even begin
+            dynamodb_service.update_relationship_detection_status(
+                full_table_name, RelationshipDetectionStatus.NOT_STARTED
             )
             return {
                 "status": "skipped",
@@ -401,6 +411,11 @@ async def detect_and_store_relationships(
         else:
             logger.info(f"No high-confidence relationships found for {full_table_name}")
 
+        # Update status to COMPLETED
+        dynamodb_service.update_relationship_detection_status(
+            full_table_name, RelationshipDetectionStatus.COMPLETED
+        )
+
         return {
             "status": "success",
             "table": full_table_name,
@@ -413,9 +428,16 @@ async def detect_and_store_relationships(
             f"❌ Failed to detect relationships for {table_identifier}: {e}",
             exc_info=True,
         )
+
+        # Update status to FAILED
+        full_table_name = f"{catalog}.{schema}.{table_name}"
+        dynamodb_service.update_relationship_detection_status(
+            full_table_name, RelationshipDetectionStatus.FAILED
+        )
+
         return {
             "status": "error",
-            "table": f"{catalog}.{schema}.{table_name}",
+            "table": full_table_name,
             "error": str(e),
             "relationships_found": 0,
         }
