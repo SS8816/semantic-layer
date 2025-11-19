@@ -1,11 +1,13 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon, User, LogOut, Database } from 'lucide-react';
+import { Sun, Moon, User, LogOut, Database, Home, Table } from 'lucide-react';
 import { Button, Badge, Tooltip } from './ui';
 import api from '../services/api';
 
 const Header = ({ user, onLogout, generationProgress }) => {
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -16,12 +18,14 @@ const Header = ({ user, onLogout, generationProgress }) => {
     }
   };
 
+  const isActive = (path) => location.pathname === path;
+
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm transition-theme">
       <div className="px-6 py-3">
         <div className="flex items-center justify-between">
-          {/* Left: Logo and Title */}
-          <div className="flex items-center gap-4">
+          {/* Left: Logo, Title, and Navigation */}
+          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <img src="/here-xy.jpg" alt="HERE Technologies" className="h-10 w-10 object-contain" />
               <div>
@@ -33,6 +37,32 @@ const Header = ({ user, onLogout, generationProgress }) => {
                 </p>
               </div>
             </div>
+
+            {/* Navigation Links */}
+            <nav className="flex items-center gap-2">
+              <Link
+                to="/"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  isActive('/')
+                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Home className="h-4 w-4" />
+                <span className="text-sm font-medium">Browse</span>
+              </Link>
+              <Link
+                to="/enriched-tables"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  isActive('/enriched-tables')
+                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Table className="h-4 w-4" />
+                <span className="text-sm font-medium">Enriched Tables</span>
+              </Link>
+            </nav>
           </div>
 
           {/* Center: Progress Bar (if generating) */}

@@ -5,6 +5,8 @@ import Header from './components/Header';
 import LeftRail from './components/LeftRail';
 import TableDataViewer from './components/TableDataViewer';
 import MetadataViewer from './components/MetadataViewer';
+import EnrichedTablesPage from './components/EnrichedTablesPage';
+import MetadataEditModal from './components/MetadataEditModal';
 import { EmptyState, Spinner } from './components/ui';
 import { Database } from 'lucide-react';
 import api from './services/api';
@@ -14,6 +16,10 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isLeftRailCollapsed, setIsLeftRailCollapsed] = useState(false);
+
+  // Modal state for editing metadata from enriched tables page
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [tableToEdit, setTableToEdit] = useState(null);
 
   useEffect(() => {
     checkAuth();
@@ -49,6 +55,16 @@ function App() {
     localStorage.removeItem('auth_token');
     setUser(null);
     setSelectedTable(null);
+  };
+
+  const handleEditMetadata = (table) => {
+    setTableToEdit(table);
+    setEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setTableToEdit(null);
   };
 
   if (loading) {
@@ -110,6 +126,34 @@ function App() {
                     </div>
                   </main>
                 </div>
+              </div>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/enriched-tables"
+          element={
+            user ? (
+              <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-theme">
+                {/* Header */}
+                <Header user={user} onLogout={handleLogout} />
+
+                {/* Main Content */}
+                <main className="flex-1 overflow-y-auto">
+                  <div className="max-w-7xl mx-auto p-6">
+                    <EnrichedTablesPage onEditMetadata={handleEditMetadata} />
+                  </div>
+                </main>
+
+                {/* Metadata Edit Modal */}
+                <MetadataEditModal
+                  isOpen={editModalOpen}
+                  onClose={handleCloseEditModal}
+                  table={tableToEdit}
+                />
               </div>
             ) : (
               <Navigate to="/login" />
