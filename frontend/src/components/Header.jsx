@@ -33,11 +33,6 @@ const Header = ({ user, onLogout, generationProgress }) => {
                 </p>
               </div>
             </div>
-
-            {/* Environment Indicator */}
-            <Badge variant="info" size="sm">
-              Production
-            </Badge>
           </div>
 
           {/* Center: Progress Bar (if generating) */}
@@ -58,7 +53,7 @@ const Header = ({ user, onLogout, generationProgress }) => {
           {/* Right: User Info and Actions */}
           <div className="flex items-center gap-3">
             {/* Theme Toggle */}
-            <Tooltip content={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <Tooltip content={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} position="bottom">
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -90,7 +85,7 @@ const Header = ({ user, onLogout, generationProgress }) => {
                 </div>
 
                 {/* Logout Button */}
-                <Tooltip content="Logout">
+                <Tooltip content="Logout" position="bottom">
                   <Button
                     variant="ghost"
                     size="sm"
