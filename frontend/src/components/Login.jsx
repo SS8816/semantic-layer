@@ -71,8 +71,8 @@ const Login = ({ onLoginSuccess }) => {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 transition-theme">
           {/* Logo and Title */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 dark:bg-primary-500 rounded-2xl mb-4 shadow-lg">
-              <Database className="h-8 w-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white dark:bg-gray-800 rounded-2xl mb-4 shadow-lg p-2">
+              <img src="/here-xy.jpg" alt="HERE Technologies" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               Metadata Explorer

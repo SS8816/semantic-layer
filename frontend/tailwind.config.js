@@ -20,6 +20,12 @@ module.exports = {
           800: '#075985',
           900: '#0c4a6e',
         },
+        // Background colors - warm beige for light mode
+        background: {
+          light: '#faf8f5',    // Warm off-white/beige
+          card: '#ffffff',      // Pure white for cards
+          dark: '#111827',      // Dark mode background
+        },
         // Confidence colors
         confidence: {
           high: '#10b981',

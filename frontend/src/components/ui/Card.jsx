@@ -3,7 +3,7 @@ import React from 'react';
 const Card = ({ children, className = '', ...props }) => {
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm ${className}`}
+      className={`bg-background-card dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm ${className}`}
       {...props}
     >
       {children}
@@ -37,7 +37,7 @@ const CardContent = ({ children, className = '', ...props }) => {
 
 const CardFooter = ({ children, className = '', ...props }) => {
   return (
-    <div className={`px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 ${className}`} {...props}>
+    <div className={`px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-background-light dark:bg-gray-900/50 ${className}`} {...props}>
       {children}
     </div>
   );

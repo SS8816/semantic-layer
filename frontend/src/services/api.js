@@ -129,6 +129,14 @@ const api = {
   },
 
   /**
+   * Get all enriched tables (tables with metadata)
+   */
+  getEnrichedTables: async () => {
+    const response = await apiClient.get("/api/enriched-tables");
+    return response.data;
+  },
+
+  /**
    * Get sample data from a table
    */
   getTableData: async (catalog, schema, tableName, limit = 1000) => {

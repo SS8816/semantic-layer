@@ -9,7 +9,7 @@ const LeftRail = ({ onTableSelect, selectedTable, isCollapsed, onToggleCollapse 
       {/* Collapse/Expand Button */}
       <button
         onClick={onToggleCollapse}
-        className="absolute -right-3 top-4 z-10 p-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-md hover:shadow-lg transition-all"
+        className="absolute -right-3 top-4 z-10 p-1.5 bg-background-card dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-md hover:shadow-lg transition-all"
         aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {isCollapsed ? (
@@ -22,7 +22,7 @@ const LeftRail = ({ onTableSelect, selectedTable, isCollapsed, onToggleCollapse 
       {/* Left Rail Content */}
       <aside
         className={`
-          flex-shrink-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
+          h-full flex-shrink-0 bg-background-light dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
           transition-all duration-300 ease-in-out overflow-hidden
           ${isCollapsed ? 'w-0' : 'w-80'}
         `}

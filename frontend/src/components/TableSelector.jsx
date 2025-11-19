@@ -126,6 +126,10 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
       backgroundColor: 'white',
       border: '1px solid #e5e7eb',
     }),
+    menuList: (provided) => ({
+      ...provided,
+      maxHeight: '400px',
+    }),
     option: (provided, state) => ({
       ...provided,
       backgroundColor: state.isSelected
@@ -147,6 +151,10 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
       zIndex: 9999,
       backgroundColor: '#1f2937',
       border: '1px solid #374151',
+    }),
+    menuList: (provided) => ({
+      ...provided,
+      maxHeight: '400px',
     }),
     option: (provided, state) => ({
       ...provided,

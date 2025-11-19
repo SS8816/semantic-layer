@@ -249,7 +249,7 @@ const MetadataViewer = ({ tableName }) => {
             <select
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-background-card dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               autoFocus
             >
               {options.map((opt) => (
@@ -280,7 +280,7 @@ const MetadataViewer = ({ tableName }) => {
               type="text"
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="flex-1 px-2 py-1 text-sm border border-primary-500 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 bg-background-card dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSaveEdit(columnName, field);
@@ -511,30 +511,30 @@ const MetadataViewer = ({ tableName }) => {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-900/50 border-y border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Column Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Data Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Column Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Semantic Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Aliases
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Description
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Stats
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-background-card dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {Object.entries(metadata.columns).map(([columnName, columnData], idx) => (
                 <tr
                   key={columnName}
@@ -542,15 +542,15 @@ const MetadataViewer = ({ tableName }) => {
                     idx % 2 === 0 ? '' : 'bg-gray-50/50 dark:bg-gray-800/50'
                   }`}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                  <td className="px-3 py-2.5 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                     {columnName}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400" title={columnData.data_type}>
+                  <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400" title={columnData.data_type}>
                     <code className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
                       {simplifyDataType(columnData.data_type)}
                     </code>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     {renderEditableCell(
                       columnName,
                       'column_type',
@@ -558,7 +558,7 @@ const MetadataViewer = ({ tableName }) => {
                       columnTypeOptions
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     {renderEditableCell(
                       columnName,
                       'semantic_type',
@@ -566,10 +566,10 @@ const MetadataViewer = ({ tableName }) => {
                       semanticTypeOptions
                     )}
                   </td>
-                  <td className="px-4 py-3 max-w-xs">
+                  <td className="px-3 py-2.5 max-w-xs">
                     {renderEditableCell(columnName, 'aliases', columnData.aliases)}
                   </td>
-                  <td className="px-4 py-3 max-w-md" title={columnData.description}>
+                  <td className="px-3 py-2.5 max-w-md" title={columnData.description}>
                     {renderEditableCell(
                       columnName,
                       'description',
@@ -578,7 +578,7 @@ const MetadataViewer = ({ tableName }) => {
                         : truncateDescription(columnData.description, 150)
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     <button
                       onClick={() => handleOpenStats(columnName, columnData)}
                       className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
@@ -629,7 +629,7 @@ const MetadataViewer = ({ tableName }) => {
           onClick={handleCloseStats}
         >
           <div
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full"
+            className="bg-background-card dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">

@@ -17,7 +17,7 @@ async def get_table_relationships(
     catalog: str, schema: str, table_name: str
 ) -> Dict[str, Any]:
     """
-    Get all relationships for a table
+    Get all relationships for a table (only where table is SOURCE)
 
     Args:
         catalog: Catalog name
@@ -31,8 +31,8 @@ async def get_table_relationships(
         full_table_name = f"{catalog}.{schema}.{table_name}"
         logger.info(f"Fetching relationships for {full_table_name}")
 
-        # Get all relationships
-        all_relationships = relationships_service.get_all_relationships_for_table(
+        # Get ONLY relationships where this table is the SOURCE
+        all_relationships = relationships_service.get_relationships_by_source_table(
             full_table_name
         )
 
@@ -67,7 +67,7 @@ async def get_table_relationships(
             )
 
         logger.info(
-            f"Found {len(all_relationships)} relationships for {full_table_name}"
+            f"Found {len(all_relationships)} relationships where {full_table_name} is SOURCE"
         )
 
         return {
