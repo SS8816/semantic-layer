@@ -1,0 +1,19 @@
+{"method": "GET", "path": "/api/v1/results/fastmap_prod2_v2_13_base.rule_test01_fastmap_prod2_v2_13_base_20251118_122943/schema", "client": "127.0.0.1", "event": "http_request", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:00.658094Z"}
+{"username": "ssingh11", "event": "user_authenticated", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:00.659092Z"}
+{"username": "ssingh11", "ctas_table": "fastmap_prod2_v2_13_base.rule_test01_fastmap_prod2_v2_13_base_20251118_122943", "database": "fastmap_prod2_v2_13_base", "event": "get_schema_requested", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:00.660086Z"}
+{"ctas_table": "fastmap_prod2_v2_13_base.rule_test01_fastmap_prod2_v2_13_base_20251118_122943", "database": "fastmap_prod2_v2_13_base", "event": "ctas_schema_request", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:00.660086Z"}
+Executing query in database: fastmap_prod2_v2_13_base
+Started query execution: c69fb025-2247-4238-a732-ff0255177f3e
+Query completed successfully: c69fb025-2247-4238-a732-ff0255177f3e
+Getting results for query: c69fb025-2247-4238-a732-ff0255177f3e, max_rows: 1000
+{"ctas_table": "fastmap_prod2_v2_13_base.rule_test01_fastmap_prod2_v2_13_base_20251118_122943", "result_columns": ["col_name", "data_type", "comment"], "row_count": 50, "first_row_keys": ["col_name"], "first_row_values": ["ad_country_code     \tstring              \t                    "], "event": "describe_result_debug", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.539320Z"}
+{"col_name": "ad_country_code", "col_type": "string", "row_keys": ["col_name"], "event": "describe_row_parsed", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.540315Z"}
+{"col_name": "ad_wkt", "col_type": "string", "row_keys": ["col_name"], "event": "describe_row_parsed", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.540315Z"}
+{"col_name": "geometry", "col_type": "struct<type:string,coordinates:array<array<array<array<double>>>>>", "row_keys": ["col_name"], "event": "describe_row_parsed", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.540315Z"}
+{"col_name": "object_id", "col_type": "string", "row_keys": ["col_name"], "event": "describe_row_parsed", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.540315Z"}
+{"col_name": "version", "col_type": "bigint", "row_keys": ["col_name"], "event": "describe_row_parsed", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.541313Z"}
+{"col_name": "layer", "col_type": "string", "row_keys": ["col_name"], "event": "describe_row_parsed", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.541313Z"}
+{"col_name": "ns_com_here_mom_meta", "col_type": "struct<owner:string,hashpayload:string,createdts:string,lastupdatedts:string,lastreviewedts:string,lastobservedts:string,lastupdatedby:string,updatedbyuser:string,updatedbyapp:string,modelversion:string,sourceid:string,protectionflags:array<string>,layerid:string,tid:string,operation:string>", "row_keys": ["col_name"], "event": "describe_row_parsed", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:05.543318Z"}...............
+"and it keeps going for every column, it would be way to big to send you the whole thing.", then this comes at last -
+{"method": "GET", "path": "/api/v1/results/fastmap_prod2_v2_13_base.rule_test01_fastmap_prod2_v2_13_base_20251118_122943/schema", "status_code": 200, "event": "http_response", "logger": "app.main", "level": "info", "timestamp": "2025-11-18T19:42:08.080908Z"}
+INFO:     127.0.0.1:56146 - "GET /api/v1/results/fastmap_prod2_v2_13_base.rule_test01_fastmap_prod2_v2_13_base_20251118_122943/schema?database=fastmap_prod2_v2_13_base HTTP/1.1" 200 OK

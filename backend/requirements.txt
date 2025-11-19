@@ -1,0 +1,35 @@
+# FastAPI and Server
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+
+# Database
+boto3
+trino
+
+# Data Processing
+pandas
+numpy
+
+# HuggingFace and ML
+transformers
+sentence-transformers
+torch
+
+# Geographic Detection
+pycountry
+geopy
+
+# Utilities
+python-dotenv
+sqlparse
+requests
+
+# Logging and Monitoring
+loguru
+pycountry
+geopy
+geonames-cache
+cryptography

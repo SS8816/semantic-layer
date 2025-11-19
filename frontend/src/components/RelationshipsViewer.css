@@ -1,0 +1,267 @@
+/**
+ * RelationshipsViewer Styles
+ */
+
+.relationships-container {
+    margin-top: 2rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.relationships-loading {
+    padding: 2rem;
+    text-align: center;
+    color: #666;
+}
+
+/* Header */
+.relationships-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.relationships-header:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+}
+
+.relationships-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.relationships-icon {
+    font-size: 1.5rem;
+}
+
+.relationships-toggle {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s ease;
+}
+
+.relationships-toggle:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Content */
+.relationships-content {
+    padding: 1.5rem;
+}
+
+/* Type Groups */
+.relationship-type-group {
+    margin-bottom: 2rem;
+}
+
+.relationship-type-group:last-child {
+    margin-bottom: 0;
+}
+
+.relationship-type-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #f8f9fa;
+    border-left: 4px solid #667eea;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.type-icon {
+    font-size: 1.25rem;
+}
+
+.type-count {
+    color: #666;
+    font-size: 0.9rem;
+    margin-left: 0.25rem;
+}
+
+/* Relationship List */
+.relationship-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Relationship Item */
+.relationship-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.relationship-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.relationship-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    cursor: pointer;
+    background: white;
+    transition: background 0.2s ease;
+}
+
+.relationship-summary:hover {
+    background: #f8f9fa;
+}
+
+/* Relationship Path */
+.relationship-path {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    font-family: "Courier New", monospace;
+    font-size: 0.95rem;
+}
+
+.column-name {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.relationship-arrow {
+    color: #999;
+    font-size: 1.2rem;
+}
+
+.related-table {
+    color: #333;
+    font-weight: 500;
+}
+
+.related-column {
+    color: #764ba2;
+    font-weight: 600;
+}
+
+/* Relationship Meta */
+.relationship-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.relationship-subtype {
+    padding: 0.25rem 0.75rem;
+    background: #e7f3ff;
+    color: #0066cc;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Confidence Badges */
+.confidence-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.confidence-high {
+    background: #d4edda;
+    color: #155724;
+}
+
+.confidence-medium {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.confidence-low {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.expand-button {
+    background: #f0f0f0;
+    border: none;
+    color: #666;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.expand-button:hover {
+    background: #e0e0e0;
+    color: #333;
+}
+
+/* Relationship Details */
+.relationship-details {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-top: 1px solid #e0e0e0;
+}
+
+.detail-row {
+    margin-bottom: 0.75rem;
+}
+
+.detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.detail-row strong {
+    display: block;
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-row p {
+    margin: 0;
+    color: #333;
+    line-height: 1.6;
+}
+
+.detail-row span {
+    color: #666;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .relationship-path {
+        flex-wrap: wrap;
+    }
+
+    .relationship-meta {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+    }
+}
