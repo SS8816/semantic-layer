@@ -1,13 +1,13 @@
 """
 Authentication Middleware
-Validates sessions and injects user credentials into requests
+Validates bearer tokens and injects user credentials into requests
 """
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.services.session_manager import session_manager
+from app.services.token_manager import token_manager
 from app.utils.logger import app_logger as logger
 
 
@@ -45,29 +45,32 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if self._is_public_route(path):
             return await call_next(request)
 
-        # Get session cookie
-        session_id = request.cookies.get("session_id")
+        # Get Authorization header
+        authorization = request.headers.get("Authorization")
 
-        if not session_id:
+        if not authorization or not authorization.startswith("Bearer "):
             logger.warning(f"Unauthenticated request to protected route: {path}")
             return JSONResponse(
                 status_code=401, content={"detail": "Not authenticated. Please log in."}
             )
 
-        # Validate session
-        session = session_manager.get_session(session_id)
+        # Extract token from "Bearer <token>"
+        token = authorization.replace("Bearer ", "")
 
-        if not session:
-            logger.warning(f"Invalid or expired session for route: {path}")
+        # Validate token
+        token_data = token_manager.validate_token(token)
+
+        if not token_data:
+            logger.warning(f"Invalid or expired token for route: {path}")
             return JSONResponse(
                 status_code=401,
-                content={"detail": "Session expired. Please log in again."},
+                content={"detail": "Token expired. Please log in again."},
             )
 
         # Inject user credentials into request state
-        request.state.username = session.get("username")
-        request.state.password = session.get("password")
-        request.state.user_info = session.get("user_info")
+        request.state.username = token_data.get("username")
+        request.state.password = token_data.get("password")
+        request.state.user_info = token_data.get("user_info")
 
         # Continue to route handler
         response = await call_next(request)

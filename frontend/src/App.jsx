@@ -21,10 +21,20 @@ function App() {
 
   const checkAuth = async () => {
     try {
+      // Check if token exists in localStorage
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      // Validate token with backend
       const userData = await api.getCurrentUser();
       setUser(userData);
     } catch (err) {
       console.log('Not authenticated');
+      // Clear invalid token
+      localStorage.removeItem('auth_token');
     } finally {
       setLoading(false);
     }
@@ -35,6 +45,8 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Clear token from localStorage
+    localStorage.removeItem('auth_token');
     setUser(null);
     setSelectedTable(null);
   };
