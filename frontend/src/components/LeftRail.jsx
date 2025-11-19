@@ -22,7 +22,7 @@ const LeftRail = ({ onTableSelect, selectedTable, isCollapsed, onToggleCollapse 
       {/* Left Rail Content */}
       <aside
         className={`
-          flex-shrink-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
+          h-full flex-shrink-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
           transition-all duration-300 ease-in-out overflow-hidden
           ${isCollapsed ? 'w-0' : 'w-80'}
         `}

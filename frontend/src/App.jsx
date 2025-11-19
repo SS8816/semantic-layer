@@ -81,7 +81,7 @@ function App() {
                 {/* Main Content Area with Left Rail */}
                 <div className="flex flex-1 overflow-hidden">
                   {/* Left Rail */}
-                  <div className="relative">
+                  <div className="relative h-full">
                     <LeftRail
                       onTableSelect={setSelectedTable}
                       selectedTable={selectedTable}
