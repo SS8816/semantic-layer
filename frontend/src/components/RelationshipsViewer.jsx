@@ -1,9 +1,6 @@
-/**
- * RelationshipsViewer Component
- * Displays table relationships in a collapsible section below metadata
- */
-import React, { useState, useEffect } from "react";
-import "./RelationshipsViewer.css";
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight, Link as LinkIcon, ArrowRight, Info } from 'lucide-react';
+import { Card, Badge, Spinner } from './ui';
 
 const RelationshipsViewer = ({ catalog, schema, tableName }) => {
   const [relationships, setRelationships] = useState(null);
@@ -22,17 +19,17 @@ const RelationshipsViewer = ({ catalog, schema, tableName }) => {
       setError(null);
 
       const response = await fetch(
-        `http://localhost:8000/api/relationships/${catalog}/${schema}/${tableName}`,
+        `http://localhost:8000/api/relationships/${catalog}/${schema}/${tableName}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch relationships");
+        throw new Error('Failed to fetch relationships');
       }
 
       const data = await response.json();
       setRelationships(data);
     } catch (err) {
-      console.error("Error fetching relationships:", err);
+      console.error('Error fetching relationships:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -49,152 +46,178 @@ const RelationshipsViewer = ({ catalog, schema, tableName }) => {
     setExpandedRelationships(newExpanded);
   };
 
-  const getTypeIcon = (type) => {
+  const getTypeLabel = (type) => {
     switch (type) {
-      case "foreign_key":
-        return "";
-      case "semantic":
-        return "";
-      case "name_based":
-        return "";
+      case 'foreign_key':
+        return 'Foreign Keys';
+      case 'semantic':
+        return 'Semantic';
+      case 'name_based':
+        return 'Name-Based';
       default:
-        return "";
+        return 'Other';
     }
   };
 
-  const getTypeLabel = (type) => {
+  const getTypeVariant = (type) => {
     switch (type) {
-      case "foreign_key":
-        return "Foreign Keys";
-      case "semantic":
-        return "Semantic";
-      case "name_based":
-        return "Name-Based";
+      case 'foreign_key':
+        return 'primary';
+      case 'semantic':
+        return 'info';
+      case 'name_based':
+        return 'warning';
       default:
-        return "Other";
+        return 'default';
     }
   };
 
   const getConfidenceColor = (confidence) => {
-    if (confidence >= 0.9) return "confidence-high";
-    if (confidence >= 0.75) return "confidence-medium";
-    return "confidence-low";
+    if (confidence >= 0.8) return 'success';
+    if (confidence >= 0.6) return 'warning';
+    return 'danger';
   };
 
   if (loading) {
     return (
-      <div className="relationships-container">
-        <div className="relationships-loading">Loading relationships...</div>
-      </div>
+      <Card className="mt-6">
+        <div className="p-8 flex items-center justify-center">
+          <Spinner size="md" />
+          <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">
+            Loading relationships...
+          </span>
+        </div>
+      </Card>
     );
   }
 
-  if (error) {
-    return null; // Don't show anything if error (table might not have relationships)
-  }
-
-  if (!relationships || relationships.total_count === 0) {
-    return null; // Don't show section if no relationships
+  if (error || !relationships || relationships.total_count === 0) {
+    return null; // Don't show section if error or no relationships
   }
 
   return (
-    <div className="relationships-container">
-      <div
-        className="relationships-header"
+    <Card className="mt-6">
+      <button
         onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       >
-        <div className="relationships-title">
-          <span className="relationships-icon"></span>
-          <span className="relationships-text">
-            Relationships Found ({relationships.total_count})
-          </span>
+        <div className="flex items-center gap-3">
+          {isExpanded ? (
+            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+          ) : (
+            <ChevronRight className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+          )}
+          <LinkIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          <div className="text-left">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Table Relationships
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Discovered relationships with other tables
+            </p>
+          </div>
         </div>
-        <button className="relationships-toggle">
-          {isExpanded ? "▼" : "▶"}
-        </button>
-      </div>
+        <Badge variant="primary">{relationships.total_count} relationships</Badge>
+      </button>
 
       {isExpanded && (
-        <div className="relationships-content">
-          {Object.entries(relationships.relationships_by_type).map(
-            ([type, rels]) => (
-              <div key={type} className="relationship-type-group">
-                <div className="relationship-type-header">
-                  <span className="type-icon">{getTypeIcon(type)}</span>
-                  <span className="type-label">{getTypeLabel(type)}</span>
-                  <span className="type-count">({rels.length})</span>
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          <div className="p-6 space-y-6">
+            {Object.entries(relationships.relationships_by_type).map(([type, rels]) => (
+              <div key={type} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant={getTypeVariant(type)}>
+                    {getTypeLabel(type)}
+                  </Badge>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {rels.length} {rels.length === 1 ? 'relationship' : 'relationships'}
+                  </span>
                 </div>
 
-                <div className="relationship-list">
+                <div className="space-y-2">
                   {rels.map((rel) => {
                     const relId = rel.relationship_id;
                     const isRelExpanded = expandedRelationships.has(relId);
 
-                    // Determine if this is outgoing or incoming
-                    const isOutgoing =
-                      rel.source_table === relationships.table_name;
-                    const displayColumn = isOutgoing
-                      ? rel.source_column
-                      : rel.target_column;
-                    const relatedTable = isOutgoing
-                      ? rel.target_table
-                      : rel.source_table;
-                    const relatedColumn = isOutgoing
-                      ? rel.target_column
-                      : rel.source_column;
-                    const direction = isOutgoing ? "→" : "←";
+                    const isOutgoing = rel.source_table === relationships.table_name;
+                    const displayColumn = isOutgoing ? rel.source_column : rel.target_column;
+                    const relatedTable = isOutgoing ? rel.target_table : rel.source_table;
+                    const relatedColumn = isOutgoing ? rel.target_column : rel.source_column;
 
                     return (
-                      <div key={relId} className="relationship-item">
-                        <div
-                          className="relationship-summary"
+                      <div
+                        key={relId}
+                        className="bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                      >
+                        <button
                           onClick={() => toggleRelationship(relId)}
+                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
                         >
-                          <div className="relationship-path">
-                            <span className="column-name">{displayColumn}</span>
-                            <span className="relationship-arrow">
-                              {direction}
-                            </span>
-                            <span className="related-table">
-                              {relatedTable}
-                            </span>
-                            <span className="related-column">
-                              .{relatedColumn}
-                            </span>
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <ArrowRight className={`h-4 w-4 flex-shrink-0 ${
+                              isOutgoing
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-green-600 dark:text-green-400 transform rotate-180'
+                            }`} />
+                            <div className="flex items-center gap-2 flex-1 min-w-0 text-sm">
+                              <code className="font-mono text-gray-900 dark:text-gray-100 font-medium">
+                                {displayColumn}
+                              </code>
+                              <ArrowRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="text-gray-700 dark:text-gray-300 truncate">
+                                {relatedTable}
+                              </span>
+                              <span className="text-gray-500 dark:text-gray-400">.</span>
+                              <code className="font-mono text-gray-700 dark:text-gray-300 truncate">
+                                {relatedColumn}
+                              </code>
+                            </div>
                           </div>
 
-                          <div className="relationship-meta">
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                             {rel.relationship_subtype && (
-                              <span className="relationship-subtype">
+                              <Badge variant="default" size="sm">
                                 {rel.relationship_subtype}
-                              </span>
+                              </Badge>
                             )}
-                            <span
-                              className={`confidence-badge ${getConfidenceColor(rel.confidence)}`}
-                            >
+                            <Badge variant={getConfidenceColor(rel.confidence)} size="sm">
                               {Math.round(rel.confidence * 100)}%
-                            </span>
-                            <button className="expand-button">
-                              {isRelExpanded ? "−" : "+"}
-                            </button>
+                            </Badge>
+                            <ChevronDown
+                              className={`h-4 w-4 text-gray-400 transition-transform ${
+                                isRelExpanded ? '' : '-rotate-90'
+                              }`}
+                            />
                           </div>
-                        </div>
+                        </button>
 
                         {isRelExpanded && (
-                          <div className="relationship-details">
-                            <div className="detail-row">
-                              <strong>Reasoning:</strong>
-                              <p>{rel.reasoning}</p>
+                          <div className="px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 space-y-3 text-sm">
+                            <div>
+                              <div className="flex items-start gap-2">
+                                <Info className="h-4 w-4 text-primary-600 dark:text-primary-400 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
+                                    Reasoning:
+                                  </p>
+                                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                                    {rel.reasoning}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                            <div className="detail-row">
-                              <strong>Detected:</strong>
-                              <span>
+
+                            <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-600 dark:text-gray-400">
+                              <div>
+                                <span className="font-medium">Detected:</span>{' '}
                                 {new Date(rel.detected_at).toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="detail-row">
-                              <strong>Method:</strong>
-                              <span>{rel.detected_by}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium">Method:</span>{' '}
+                                <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
+                                  {rel.detected_by}
+                                </code>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -203,11 +226,11 @@ const RelationshipsViewer = ({ catalog, schema, tableName }) => {
                   })}
                 </div>
               </div>
-            ),
-          )}
+            ))}
+          </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 

@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import Login from "./components/Login";
-import TableSelector from "./components/TableSelector";
-import TableDataViewer from "./components/TableDataViewer";
-import MetadataViewer from "./components/MetadataViewer";
-import api from "./services/api";
-import "./App.css";
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './components/Login';
+import Header from './components/Header';
+import LeftRail from './components/LeftRail';
+import TableDataViewer from './components/TableDataViewer';
+import MetadataViewer from './components/MetadataViewer';
+import { EmptyState, Spinner } from './components/ui';
+import { Database } from 'lucide-react';
+import api from './services/api';
 
 function App() {
   const [selectedTable, setSelectedTable] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isLeftRailCollapsed, setIsLeftRailCollapsed] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -26,7 +24,7 @@ function App() {
       const userData = await api.getCurrentUser();
       setUser(userData);
     } catch (err) {
-      console.log("Not authenticated");
+      console.log('Not authenticated');
     } finally {
       setLoading(false);
     }
@@ -36,21 +34,18 @@ function App() {
     setUser(userData);
   };
 
-  const handleLogout = async () => {
-    try {
-      await api.logout();
-      setUser(null);
-      setSelectedTable(null);
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
+  const handleLogout = () => {
+    setUser(null);
+    setSelectedTable(null);
   };
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loader"></div>
-        <p>Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -60,114 +55,49 @@ function App() {
       <Routes>
         <Route
           path="/login"
-          element={
-            user ? (
-              <Navigate to="/" />
-            ) : (
-              <Login onLoginSuccess={handleLoginSuccess} />
-            )
-          }
+          element={user ? <Navigate to="/" /> : <Login onLoginSuccess={handleLoginSuccess} />}
         />
 
         <Route
           path="/"
           element={
             user ? (
-              <div className="app">
-                <header className="app-header">
-                  <div className="container">
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      <div>
-                        <h1 className="app-title">
-                          <svg
-                            className="app-icon"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                          Metadata Explorer
-                        </h1>
-                        <p className="app-subtitle">
-                          Explore and manage table metadata with AI-powered
-                          insights
-                        </p>
-                      </div>
-                      <div className="user-info">
-                        <span>
-                          Welcome, {user.display_name || user.username}
-                        </span>
-                        <button
-                          onClick={handleLogout}
-                          className="logout-button"
-                        >
-                          Logout
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </header>
+              <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-theme">
+                {/* Header */}
+                <Header user={user} onLogout={handleLogout} />
 
-                <main className="app-main">
-                  <div className="container">
-                    <TableSelector
+                {/* Main Content Area with Left Rail */}
+                <div className="flex flex-1 overflow-hidden">
+                  {/* Left Rail */}
+                  <div className="relative">
+                    <LeftRail
                       onTableSelect={setSelectedTable}
                       selectedTable={selectedTable}
+                      isCollapsed={isLeftRailCollapsed}
+                      onToggleCollapse={() => setIsLeftRailCollapsed(!isLeftRailCollapsed)}
                     />
+                  </div>
 
-                    {selectedTable && (
-                      <>
-                        <section className="section">
+                  {/* Main Content */}
+                  <main className="flex-1 overflow-y-auto">
+                    <div className="max-w-7xl mx-auto p-6">
+                      {selectedTable ? (
+                        <div className="space-y-6">
                           <TableDataViewer tableName={selectedTable} />
-                        </section>
-                        <section className="section">
                           <MetadataViewer tableName={selectedTable} />
-                        </section>
-                      </>
-                    )}
-
-                    {!selectedTable && (
-                      <div className="empty-state">
-                        <svg
-                          className="empty-icon"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        </div>
+                      ) : (
+                        <div className="mt-20">
+                          <EmptyState
+                            icon={<Database className="h-16 w-16" />}
+                            title="Welcome to Metadata Explorer"
+                            description="Select a catalog, schema, and table from the left sidebar to explore data, view enriched metadata, and discover relationships"
                           />
-                        </svg>
-                        <h2>Get Started</h2>
-                        <p>
-                          Select a table from the dropdown above to view its
-                          data and metadata
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </main>
-
-                <footer className="app-footer">
-                  <div className="container">
-                    <p>&copy; Semantic Layer. Internal tool.</p>
-                  </div>
-                </footer>
+                        </div>
+                      )}
+                    </div>
+                  </main>
+                </div>
               </div>
             ) : (
               <Navigate to="/login" />

@@ -1,40 +1,35 @@
-/**
- * TableSelector Component
- */
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
+import { Database, Table, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../services/api';
-import './TableSelector.css';
+import { Badge } from './ui';
 
 const TableSelector = ({ onTableSelect, selectedTable }) => {
   const [catalogs, setCatalogs] = useState([]);
   const [selectedCatalog, setSelectedCatalog] = useState('here_explorer');
-  
+
   const [schemas, setSchemas] = useState([]);
   const [selectedSchema, setSelectedSchema] = useState('explorer_datasets');
-  
+
   const [tables, setTables] = useState([]);
-  const [tablesWithMetadata, setTablesWithMetadata] = useState(new Set());
-  
+  const [tablesWithMetadata, setTablesWithMetadata] = useState(new Map());
+
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
   const [loadingSchemas, setLoadingSchemas] = useState(false);
   const [loadingTables, setLoadingTables] = useState(false);
-  
+
   const [error, setError] = useState(null);
 
-  // Fetch catalogs on mount
   useEffect(() => {
     fetchCatalogs();
   }, []);
 
-  // Fetch schemas when catalog changes
   useEffect(() => {
     if (selectedCatalog) {
       fetchSchemas();
     }
   }, [selectedCatalog]);
 
-  // Fetch tables when schema changes
   useEffect(() => {
     if (selectedCatalog && selectedSchema) {
       fetchTables();
@@ -74,11 +69,8 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
     try {
       setLoadingTables(true);
       setError(null);
-      
-      // Get ALL tables from Starburst (not filtered by DynamoDB)
       const data = await api.getTablesInSchema(selectedCatalog, selectedSchema);
       setTables(data.tables || []);
-      
     } catch (err) {
       console.error('Error fetching tables:', err);
       setError('Failed to load tables. Please try again.');
@@ -89,74 +81,145 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
 
   const fetchTablesWithMetadata = async () => {
     try {
-      // Get tables that have metadata in DynamoDB
       const data = await api.getTables();
-      const metadataSet = new Set(
-        data.tables
-          .filter(t => t.catalog_schema_table.startsWith(`${selectedCatalog}.${selectedSchema}.`))
-          .map(t => t.name)
-      );
-      setTablesWithMetadata(metadataSet);
+      const metadataMap = new Map();
+
+      data.tables
+        .filter(t => t.catalog_schema_table.startsWith(`${selectedCatalog}.${selectedSchema}.`))
+        .forEach(t => {
+          metadataMap.set(t.name, {
+            lastUpdated: t.last_updated,
+            schemaStatus: t.schema_status,
+            hasMetadata: true
+          });
+        });
+
+      setTablesWithMetadata(metadataMap);
     } catch (err) {
       console.error('Error fetching tables with metadata:', err);
-      // Don't set error - this is optional
     }
   };
 
-  // Format catalogs for react-select
+  // Custom styles for react-select with dark mode
+  const customStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      minHeight: '42px',
+      backgroundColor: 'transparent',
+      borderColor: state.isFocused ? '#0ea5e9' : '#d1d5db',
+      boxShadow: state.isFocused ? '0 0 0 2px rgba(14, 165, 233, 0.1)' : 'none',
+      '&:hover': {
+        borderColor: '#0ea5e9',
+      },
+    }),
+    input: (provided) => ({
+      ...provided,
+      color: 'inherit',
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: 'inherit',
+    }),
+    menu: (provided) => ({
+      ...provided,
+      zIndex: 9999,
+      backgroundColor: 'white',
+      border: '1px solid #e5e7eb',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isSelected
+        ? '#0ea5e9'
+        : state.isFocused
+        ? '#f3f4f6'
+        : 'white',
+      color: state.isSelected ? 'white' : '#1f2937',
+      cursor: 'pointer',
+      padding: '10px 12px',
+    }),
+  };
+
+  // Dark mode styles
+  const darkModeStyles = {
+    ...customStyles,
+    menu: (provided) => ({
+      ...provided,
+      zIndex: 9999,
+      backgroundColor: '#1f2937',
+      border: '1px solid #374151',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isSelected
+        ? '#0ea5e9'
+        : state.isFocused
+        ? '#374151'
+        : '#1f2937',
+      color: state.isSelected ? 'white' : '#f3f4f6',
+    }),
+  };
+
+  // Detect dark mode
+  const isDarkMode = document.documentElement.classList.contains('dark');
+  const selectStyles = isDarkMode ? darkModeStyles : customStyles;
+
+  // Format options with icons
   const catalogOptions = catalogs.map((catalog) => ({
     value: catalog,
     label: catalog,
   }));
 
-  // Format schemas for react-select
   const schemaOptions = schemas.map((schema) => ({
     value: schema,
     label: schema,
   }));
 
-  // Format tables for react-select
-  const tableOptions = tables.map((tableName) => ({
-    value: `${selectedCatalog}.${selectedSchema}.${tableName}`,
-    label: tableName,
-    hasMetadata: tablesWithMetadata.has(tableName),
-  }));
+  const tableOptions = tables.map((tableName) => {
+    const metadata = tablesWithMetadata.get(tableName);
+    return {
+      value: `${selectedCatalog}.${selectedSchema}.${tableName}`,
+      label: tableName,
+      hasMetadata: metadata?.hasMetadata || false,
+      schemaStatus: metadata?.schemaStatus,
+      lastUpdated: metadata?.lastUpdated,
+    };
+  });
 
-  // Custom option renderer to show metadata status
-  const formatTableOptionLabel = ({ label, hasMetadata }) => (
-    <div className="table-option">
-      <span className="table-name">{label}</span>
-      {hasMetadata && (
-        <span className="metadata-badge">Has Metadata</span>
-      )}
+  // Custom option renderer
+  const formatTableOptionLabel = ({ label, hasMetadata, schemaStatus }) => (
+    <div className="flex items-center justify-between gap-2 w-full">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <Table className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+        <span className="truncate text-sm">{label}</span>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {hasMetadata && (
+          <Badge variant="enriched" size="sm">
+            <CheckCircle className="h-3 w-3" />
+          </Badge>
+        )}
+        {schemaStatus === 'SCHEMA_CHANGED' && (
+          <Badge variant="stale" size="sm">
+            <AlertCircle className="h-3 w-3" />
+          </Badge>
+        )}
+      </div>
     </div>
   );
-
-  const customStyles = {
-    control: (provided) => ({
-      ...provided,
-      minHeight: '45px',
-      borderColor: '#d1d5db',
-      boxShadow: 'none',
-      '&:hover': {
-        borderColor: '#9ca3af',
-      },
-    }),
-    menu: (provided) => ({
-      ...provided,
-      zIndex: 9999,
-    }),
-  };
 
   const selectedCatalogOption = catalogOptions.find((opt) => opt.value === selectedCatalog);
   const selectedSchemaOption = schemaOptions.find((opt) => opt.value === selectedSchema);
   const selectedTableOption = tableOptions.find((opt) => opt.value === selectedTable);
 
   return (
-    <div className="table-selector">
+    <div className="space-y-4">
       {/* Catalog Selector */}
-      <div className="selector-group">
-        <label htmlFor="catalog-select" className="selector-label">
+      <div className="space-y-2">
+        <label
+          htmlFor="catalog-select"
+          className="block text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide"
+        >
+          <Database className="inline h-3 w-3 mr-1" />
           Catalog
         </label>
         <Select
@@ -165,21 +228,22 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
           value={selectedCatalogOption}
           onChange={(option) => {
             setSelectedCatalog(option?.value || 'here_explorer');
-            setSelectedSchema(''); // Reset schema
-            onTableSelect(null); // Clear table selection
+            setSelectedSchema('');
+            onTableSelect(null);
           }}
-          placeholder={loadingCatalogs ? 'Loading catalogs...' : 'Select catalog...'}
+          placeholder={loadingCatalogs ? 'Loading...' : 'Select catalog...'}
           isLoading={loadingCatalogs}
           isSearchable
-          styles={customStyles}
-          className="catalog-select"
-          classNamePrefix="catalog-select"
+          styles={selectStyles}
         />
       </div>
 
       {/* Schema Selector */}
-      <div className="selector-group">
-        <label htmlFor="schema-select" className="selector-label">
+      <div className="space-y-2">
+        <label
+          htmlFor="schema-select"
+          className="block text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide"
+        >
           Schema
         </label>
         <Select
@@ -188,31 +252,30 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
           value={selectedSchemaOption}
           onChange={(option) => {
             setSelectedSchema(option?.value || '');
-            onTableSelect(null); // Clear table selection
+            onTableSelect(null);
           }}
-          placeholder={loadingSchemas ? 'Loading schemas...' : 'Select schema...'}
+          placeholder={loadingSchemas ? 'Loading...' : 'Select schema...'}
           isLoading={loadingSchemas}
           isSearchable
           isDisabled={!selectedCatalog}
-          styles={customStyles}
-          className="schema-select"
-          classNamePrefix="schema-select"
+          styles={selectStyles}
         />
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="error-message">
-          {error}
-          <button onClick={fetchTables} className="retry-button">
-            Retry
-          </button>
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
 
       {/* Table Selector */}
-      <div className="selector-group">
-        <label htmlFor="table-select" className="selector-label">
+      <div className="space-y-2">
+        <label
+          htmlFor="table-select"
+          className="block text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide"
+        >
+          <Table className="inline h-3 w-3 mr-1" />
           Table
         </label>
         <Select
@@ -220,25 +283,46 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
           options={tableOptions}
           value={selectedTableOption}
           onChange={(option) => onTableSelect(option?.value)}
-          placeholder={loadingTables ? 'Loading tables...' : 'Search and select a table...'}
+          placeholder={loadingTables ? 'Loading...' : 'Search and select a table...'}
           isLoading={loadingTables}
           isSearchable
           isClearable
           isDisabled={!selectedCatalog || !selectedSchema}
           formatOptionLabel={formatTableOptionLabel}
-          styles={customStyles}
-          className="table-select"
-          classNamePrefix="table-select"
+          styles={selectStyles}
         />
       </div>
 
-      {/* Table Count */}
+      {/* Table Count and Stats */}
       {tables.length > 0 && (
-        <div className="table-count">
-          {tables.length} tables in {selectedCatalog}.{selectedSchema}
-          {tablesWithMetadata.size > 0 && (
-            <span className="metadata-count"> ({tablesWithMetadata.size} with metadata)</span>
-          )}
+        <div className="pt-2 space-y-2">
+          <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+            <span>{tables.length} tables total</span>
+            {tablesWithMetadata.size > 0 && (
+              <Badge variant="enriched" size="sm">
+                {tablesWithMetadata.size} enriched
+              </Badge>
+            )}
+          </div>
+
+          {/* Legend */}
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Legend:</p>
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-1">
+                <Badge variant="enriched" size="sm">
+                  <CheckCircle className="h-3 w-3" />
+                </Badge>
+                <span className="text-xs text-gray-600 dark:text-gray-400">Enriched</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Badge variant="stale" size="sm">
+                  <AlertCircle className="h-3 w-3" />
+                </Badge>
+                <span className="text-xs text-gray-600 dark:text-gray-400">Schema Changed</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
