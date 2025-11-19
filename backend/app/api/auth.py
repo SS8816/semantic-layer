@@ -4,11 +4,11 @@ Authentication API endpoints
 
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, HTTPException, Response
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from app.services.auth_service import auth_service
-from app.services.session_manager import session_manager
+from app.services.token_manager import token_manager
 from app.utils.logger import app_logger as logger
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -26,6 +26,7 @@ class LoginResponse(BaseModel):
 
     success: bool
     message: str
+    token: str
     user: Optional[dict] = None
 
 
@@ -40,16 +41,15 @@ class UserResponse(BaseModel):
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest, response: Response):
+async def login(request: LoginRequest):
     """
-    Login endpoint - authenticates user and creates session
+    Login endpoint - authenticates user and creates bearer token
 
     Args:
         request: Login credentials
-        response: FastAPI response object (for setting cookies)
 
     Returns:
-        LoginResponse with user info
+        LoginResponse with bearer token and user info
     """
     try:
         logger.info(f"Login attempt for user: {request.username}")
@@ -61,24 +61,16 @@ async def login(request: LoginRequest, response: Response):
             logger.warning(f"Login failed for user: {request.username}")
             raise HTTPException(status_code=401, detail="Invalid username or password")
 
-        # Create session
-        session_id = session_manager.create_session(
+        # Create bearer token
+        token = token_manager.create_token(
             username=request.username, password=request.password, user_info=user_info
-        )
-
-        # Set HTTP-only cookie
-        response.set_cookie(
-            key="session_id",
-            value=session_id,
-            httponly=True,  # Cannot be accessed by JavaScript (XSS protection)
-            secure=False,  # Only sent over HTTPS
-            samesite="lax",  # CSRF protection
-            max_age=60 * 60 * 24 * 3,  # 3 days in seconds
         )
 
         logger.info(f"Login successful for user: {request.username}")
 
-        return LoginResponse(success=True, message="Login successful", user=user_info)
+        return LoginResponse(
+            success=True, message="Login successful", token=token, user=user_info
+        )
 
     except HTTPException:
         raise
@@ -88,25 +80,29 @@ async def login(request: LoginRequest, response: Response):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(session_id: Optional[str] = Cookie(None)):
+async def get_current_user(authorization: Optional[str] = Header(None)):
     """
     Get current authenticated user
 
     Args:
-        session_id: Session ID from cookie
+        authorization: Authorization header with Bearer token
 
     Returns:
         Current user information
     """
-    if not session_id:
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    session = session_manager.get_session(session_id)
+    # Extract token from "Bearer <token>"
+    token = authorization.replace("Bearer ", "")
 
-    if not session:
-        raise HTTPException(status_code=401, detail="Session expired or invalid")
+    # Validate token
+    token_data = token_manager.validate_token(token)
 
-    user_info = session.get("user_info", {})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Token expired or invalid")
+
+    user_info = token_data.get("user_info", {})
 
     return UserResponse(
         username=user_info.get("username", ""),
@@ -118,56 +114,43 @@ async def get_current_user(session_id: Optional[str] = Cookie(None)):
 
 
 @router.post("/logout")
-async def logout(response: Response, session_id: Optional[str] = Cookie(None)):
+async def logout():
     """
-    Logout endpoint - deletes session and clears cookie
-
-    Args:
-        response: FastAPI response object
-        session_id: Session ID from cookie
+    Logout endpoint - with token-based auth, client handles token removal
 
     Returns:
         Success message
     """
-    if session_id:
-        session_manager.delete_session(session_id)
-        logger.info("User logged out")
-
-    # Clear cookie
-    response.delete_cookie(key="session_id")
-
+    logger.info("User logged out")
     return {"success": True, "message": "Logged out successfully"}
 
 
-@router.get("/session-info")
-async def get_session_info(session_id: Optional[str] = Cookie(None)):
+@router.get("/token-info")
+async def get_token_info(authorization: Optional[str] = Header(None)):
     """
-    Get session information (for debugging)
+    Get token information (for debugging)
 
     Args:
-        session_id: Session ID from cookie
+        authorization: Authorization header with Bearer token
 
     Returns:
-        Session info
+        Token info
     """
-    if not session_id:
-        return {
-            "authenticated": False,
-            "total_sessions": session_manager.get_session_count(),
-        }
+    if not authorization or not authorization.startswith("Bearer "):
+        return {"authenticated": False}
 
-    session = session_manager.get_session(session_id)
+    # Extract token from "Bearer <token>"
+    token = authorization.replace("Bearer ", "")
 
-    if not session:
-        return {
-            "authenticated": False,
-            "total_sessions": session_manager.get_session_count(),
-        }
+    # Validate token
+    token_data = token_manager.validate_token(token)
+
+    if not token_data:
+        return {"authenticated": False}
 
     return {
         "authenticated": True,
-        "username": session.get("username"),
-        "created_at": session.get("created_at").isoformat(),
-        "expires_at": session.get("expires_at").isoformat(),
-        "total_sessions": session_manager.get_session_count(),
+        "username": token_data.get("username"),
+        "created_at": token_data.get("created_at"),
+        "expires_at": token_data.get("expires_at"),
     }

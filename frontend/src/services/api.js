@@ -12,13 +12,18 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 60000,
-  withCredentials: true, // 60 second timeout for long-running queries
+  timeout: 60000, // 60 second timeout for long-running queries
 });
 
-// Request interceptor for logging
+// Request interceptor for adding auth token and logging
 apiClient.interceptors.request.use(
   (config) => {
+    // Add bearer token to Authorization header
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
@@ -41,6 +46,16 @@ apiClient.interceptors.response.use(
       "[API Response Error]",
       error.response?.data || error.message,
     );
+
+    // Handle 401 errors by clearing token and redirecting to login
+    if (error.response?.status === 401) {
+      localStorage.removeItem("auth_token");
+      // Only redirect if not already on login page
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+
     return Promise.reject(error);
   },
 );

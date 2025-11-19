@@ -21,7 +21,10 @@ const Login = ({ onLoginSuccess }) => {
     try {
       const response = await api.login(username, password);
 
-      if (response.success) {
+      if (response.success && response.token) {
+        // Save token to localStorage
+        localStorage.setItem('auth_token', response.token);
+
         onLoginSuccess(response.user);
         navigate('/');
       } else {
@@ -131,7 +134,7 @@ const Login = ({ onLoginSuccess }) => {
 
         {/* Additional Info */}
         <p className="text-center mt-6 text-sm text-gray-600 dark:text-gray-400">
-          Session-based authentication • Secure • Internal use only
+          Token-based authentication • Secure • Internal use only
         </p>
       </div>
     </div>
