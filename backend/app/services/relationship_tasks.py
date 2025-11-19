@@ -448,33 +448,46 @@ def start_relationship_detection_task(
 ):
     """
     Start relationship detection as a background task (non-blocking)
+
+    This runs in a separate thread to avoid blocking the main metadata generation task.
     """
     import asyncio
+    import threading
+
+    def run_in_thread():
+        """Run async function in a new thread with its own event loop"""
+        try:
+            # Create a new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            # Run the relationship detection
+            loop.run_until_complete(
+                detect_and_store_relationships(
+                    table_identifier, catalog, schema, table_name
+                )
+            )
+
+            loop.close()
+
+        except Exception as e:
+            logger.error(
+                f"Error in relationship detection thread for {table_identifier}: {e}",
+                exc_info=True
+            )
 
     try:
-        # Get the running event loop (FastAPI's loop)
-        try:
-            loop = asyncio.get_running_loop()
+        # Start in a daemon thread so it doesn't block
+        thread = threading.Thread(
+            target=run_in_thread,
+            name=f"RelationshipDetection-{table_identifier}",
+            daemon=True
+        )
+        thread.start()
 
-            # Create background task in FastAPI's event loop
-            loop.create_task(
-                detect_and_store_relationships(
-                    table_identifier, catalog, schema, table_name
-                )
-            )
-
-            logger.info(
-                f" Started background relationship detection task for {table_identifier}"
-            )
-
-        except RuntimeError:
-            # No event loop running - create one
-            logger.warning("No running event loop, creating new one")
-            asyncio.run(
-                detect_and_store_relationships(
-                    table_identifier, catalog, schema, table_name
-                )
-            )
+        logger.info(
+            f"🚀 Started background relationship detection thread for {table_identifier}"
+        )
 
     except Exception as e:
-        logger.error(f"Failed to start relationship detection task: {e}", exc_info=True)
+        logger.error(f"Failed to start relationship detection thread: {e}", exc_info=True)
