@@ -508,56 +508,6 @@ const MetadataViewer = ({ tableName }) => {
 
   return (
     <div className="mt-6 space-y-6">
-      {/* Relationship Detection Status Banner */}
-      {relationshipStatus === 'in_progress' && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin" />
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                Finding Relationships
-              </h4>
-              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                Discovering relationships between this table and all other enriched tables (~3-5 minutes).
-                You can navigate away and come back later, or wait here to see results.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {relationshipStatus === 'completed' && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-green-900 dark:text-green-100">
-                Relationships Ready
-              </h4>
-              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                Relationship detection completed successfully. See discovered relationships below.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {relationshipStatus === 'failed' && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <X className="h-5 w-5 text-red-600 dark:text-red-400" />
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-red-900 dark:text-red-100">
-                Relationship Detection Failed
-              </h4>
-              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                An error occurred during relationship detection. You can regenerate metadata to retry.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header Card */}
       <Card>
         <Card.Header className="flex items-center justify-between">
@@ -705,6 +655,56 @@ const MetadataViewer = ({ tableName }) => {
           )}
         </Card.Footer>
       </Card>
+
+      {/* Relationship Detection Status Banner */}
+      {relationshipStatus === 'in_progress' && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                Finding Relationships
+              </h4>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                Discovering relationships between this table and all other enriched tables (~3-5 minutes).
+                You can navigate away and come back later, or wait here to see results.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {relationshipStatus === 'completed' && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-green-900 dark:text-green-100">
+                Relationships Ready
+              </h4>
+              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                Relationship detection completed successfully. See discovered relationships below.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {relationshipStatus === 'failed' && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <X className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-red-900 dark:text-red-100">
+                Relationship Detection Failed
+              </h4>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                An error occurred during relationship detection. You can regenerate metadata to retry.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Modal */}
       {statsModal && (
