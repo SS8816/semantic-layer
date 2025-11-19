@@ -782,7 +782,14 @@ const MetadataViewer = ({ tableName }) => {
           const parts = tableName.split('.');
           if (parts.length === 3) {
             const [catalog, schema, table] = parts;
-            return <RelationshipsViewer catalog={catalog} schema={schema} tableName={table} />;
+            return (
+              <RelationshipsViewer
+                key={`${catalog}.${schema}.${table}-${relationshipStatus}`}
+                catalog={catalog}
+                schema={schema}
+                tableName={table}
+              />
+            );
           }
           return null;
         })()}
