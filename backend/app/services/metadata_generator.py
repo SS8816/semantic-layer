@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from app.config import settings
-from app.models import ColumnMetadata, SchemaStatus, TableMetadata
+from app.models import ColumnMetadata, RelationshipDetectionStatus, SchemaStatus, TableMetadata
 from app.services.alias_generator import alias_generator
 from app.services.column_type_detector import column_type_detector
 from app.services.dynamodb import dynamodb_service
@@ -209,6 +209,11 @@ class MetadataGenerator:
 
             logger.info(
                 f"✅ Successfully generated metadata for: {catalog_schema_table}"
+            )
+
+            # Update status to IN_PROGRESS before starting thread (so frontend sees it immediately)
+            self.dynamodb.update_relationship_detection_status(
+                catalog_schema_table, RelationshipDetectionStatus.IN_PROGRESS
             )
 
             # Start relationship detection in background

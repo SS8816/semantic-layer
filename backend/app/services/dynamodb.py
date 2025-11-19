@@ -15,6 +15,7 @@ from botocore.exceptions import ClientError
 from app.config import settings
 from app.models import (
     ColumnMetadata,
+    RelationshipDetectionStatus,
     SchemaChange,
     SchemaStatus,
     TableMetadata,
@@ -126,6 +127,7 @@ class DynamoDBService:
                 "row_count": table_metadata.row_count,
                 "column_count": table_metadata.column_count,
                 "schema_status": table_metadata.schema_status.value,
+                "relationship_detection_status": table_metadata.relationship_detection_status.value,
             }
 
             if table_metadata.schema_change_detected_at:
@@ -187,6 +189,9 @@ class DynamoDBService:
                 schema_status=SchemaStatus(item.get("schema_status", "CURRENT")),
                 schema_change_detected_at=schema_change_detected_at,
                 schema_changes=schema_changes,
+                relationship_detection_status=RelationshipDetectionStatus(
+                    item.get("relationship_detection_status", "not_started")
+                ),
             )
 
             logger.info(f"Retrieved table metadata for {catalog_schema_table}")
@@ -309,6 +314,39 @@ class DynamoDBService:
         except Exception as e:
             logger.error(
                 f"Failed to update schema status for {catalog_schema_table}: {e}"
+            )
+            return False
+
+    def update_relationship_detection_status(
+        self,
+        catalog_schema_table: str,
+        status: RelationshipDetectionStatus,
+    ) -> bool:
+        """
+        Update relationship detection status for a table
+
+        Args:
+            catalog_schema_table: Full table identifier
+            status: New relationship detection status
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.table_metadata_table.update_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                UpdateExpression="SET relationship_detection_status = :status",
+                ExpressionAttributeValues={":status": status.value},
+            )
+
+            logger.info(
+                f"Updated relationship detection status for {catalog_schema_table} to {status.value}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to update relationship detection status for {catalog_schema_table}: {e}"
             )
             return False
 
@@ -604,6 +642,7 @@ class DynamoDBService:
                 column_count=table_metadata.column_count,
                 schema_status=table_metadata.schema_status,
                 schema_changes=table_metadata.schema_changes,
+                relationship_detection_status=table_metadata.relationship_detection_status,
                 columns=columns_dict,
             )
 

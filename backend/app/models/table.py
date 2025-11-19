@@ -13,6 +13,14 @@ class SchemaStatus(str, Enum):
     SCHEMA_CHANGED = "SCHEMA_CHANGED"
 
 
+class RelationshipDetectionStatus(str, Enum):
+    """Relationship detection status enum"""
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class SchemaChange(BaseModel):
     """Schema change details"""
     new_columns: List[str] = Field(default_factory=list)
@@ -29,6 +37,7 @@ class TableMetadata(BaseModel):
     schema_status: SchemaStatus = SchemaStatus.CURRENT
     schema_change_detected_at: Optional[datetime] = None
     schema_changes: Optional[SchemaChange] = None
+    relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
     
     class Config:
         json_schema_extra = {
@@ -52,6 +61,7 @@ class TableSummary(BaseModel):
     last_updated: datetime
     row_count: int
     column_count: int = 0
+    relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
     
     class Config:
         json_schema_extra = {
@@ -74,6 +84,7 @@ class TableWithColumns(BaseModel):
     column_count: int = 0
     schema_status: SchemaStatus
     schema_changes: Optional[SchemaChange] = None
+    relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
     columns: Dict[str, dict]  # column_name -> column metadata dict
     
     class Config:

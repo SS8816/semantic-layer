@@ -28,6 +28,44 @@ class RelationshipDetector:
         self.deployment = settings.azure_openai_deployment
         self.source_batch_size = 20  # Process 20 source columns at a time
 
+        # Exclude these semantic types from relationship detection (not used in SQL joins)
+        self.excluded_semantic_types = {
+            'latitude',
+            'longitude',
+            'wkt_geometry',
+            'geojson_geometry',
+            'geometry_type'
+        }
+
+        # Exclude these column types from relationship detection
+        self.excluded_column_types = {'measure'}
+
+    def _should_exclude_column(self, column: Dict[str, Any]) -> bool:
+        """
+        Check if column should be excluded from relationship detection
+
+        Excludes columns that are not typically used in SQL joins:
+        - Geospatial columns (lat/lon, geometry types)
+        - Measure columns (aggregated values, metrics)
+
+        Args:
+            column: Column metadata dictionary
+
+        Returns:
+            True if column should be excluded, False otherwise
+        """
+        # Exclude based on semantic_type
+        semantic_type = column.get('semantic_type')
+        if semantic_type and semantic_type in self.excluded_semantic_types:
+            return True
+
+        # Exclude based on column_type
+        column_type = column.get('column_type')
+        if column_type and column_type in self.excluded_column_types:
+            return True
+
+        return False
+
     async def find_relationships(
         self,
         new_table_name: str,
@@ -337,6 +375,17 @@ Return VALID JSON with relationships array. If no good matches, return empty arr
         Returns:
             Formatted prompt string
         """
+        # Filter out excluded columns from source table
+        filtered_new_columns = [
+            col for col in new_columns if not self._should_exclude_column(col)
+        ]
+
+        if len(filtered_new_columns) < len(new_columns):
+            logger.debug(
+                f"Filtered {len(new_columns) - len(filtered_new_columns)} columns from source table "
+                f"(geospatial/measure columns excluded from relationship detection)"
+            )
+
         # Format new table columns
         new_table_section = {
             "table_name": new_table_name,
@@ -352,13 +401,24 @@ Return VALID JSON with relationships array. If no good matches, return empty arr
                     if col.get("stats")
                     else 0,
                 }
-                for col in new_columns
+                for col in filtered_new_columns
             ],
         }
 
         # Format target table (single table)
         target_table_section = []
         for table_name, columns in target_table_metadata.items():
+            # Filter out excluded columns from target table
+            filtered_target_columns = [
+                col for col in columns if not self._should_exclude_column(col)
+            ]
+
+            if len(filtered_target_columns) < len(columns):
+                logger.debug(
+                    f"Filtered {len(columns) - len(filtered_target_columns)} columns from target table {table_name} "
+                    f"(geospatial/measure columns excluded)"
+                )
+
             table_info = {
                 "table_name": table_name,
                 "columns": [
@@ -373,7 +433,7 @@ Return VALID JSON with relationships array. If no good matches, return empty arr
                         if col.get("stats")
                         else 0,
                     }
-                    for col in columns
+                    for col in filtered_target_columns
                 ],
             }
             target_table_section.append(table_info)
