@@ -642,6 +642,7 @@ class DynamoDBService:
                 column_count=table_metadata.column_count,
                 schema_status=table_metadata.schema_status,
                 schema_changes=table_metadata.schema_changes,
+                relationship_detection_status=table_metadata.relationship_detection_status,
                 columns=columns_dict,
             )
 
