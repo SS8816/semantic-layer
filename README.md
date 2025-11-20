@@ -1,79 +1,163 @@
-# Metadata Explorer
+# Semantic Layer
 
-A comprehensive metadata management system for exploring, analyzing, and managing database table metadata with AI-powered insights. Built with FastAPI, React, Starburst/Trino, DynamoDB, and HuggingFace Transformers.
+A comprehensive semantic layer system for exploring, analyzing, and managing database table metadata with AI-powered insights and intelligent relationship discovery. Built with FastAPI, React, Starburst/Trino, DynamoDB, HuggingFace Transformers, and Azure OpenAI.
 
-## 🎯 Overview
+## Overview
 
-Metadata Explorer helps you:
-- **Automatically generate rich metadata** for database tables
-- **Detect geographic data** (countries, cities, states)
-- **Identify coordinates** (latitude/longitude columns)
-- **Generate human-readable aliases** using AI
-- **Track schema changes** with daily monitoring
-- **Visualize table data** and metadata in a clean UI
+The Semantic Layer automatically enriches database tables with rich metadata and discovers relationships between tables using advanced AI models. It provides a complete semantic understanding of your data landscape.
 
-## 🏗️ Architecture
+**Key Capabilities:**
+- Automatically generate comprehensive metadata for database tables
+- Detect geographic data (countries, cities, states, coordinates)
+- Generate human-readable aliases and descriptions using AI
+- Discover relationships between tables using Azure OpenAI GPT-4o
+- Track schema changes with monitoring
+- Visualize table data and metadata in an intuitive UI
+- Filter relationships to focus on SQL join-relevant columns
+- Real-time status tracking for background processes
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     React Frontend                           │
-│              (Table Explorer & Metadata Viewer)              │
+│          (Browse, Enriched Tables, Metadata Viewer)          │
 └──────────────────────────┬──────────────────────────────────┘
                            │ REST API
 ┌──────────────────────────┴──────────────────────────────────┐
 │                    FastAPI Backend                           │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │  Services: Metadata Generator, Geographic Detector,    │ │
-│  │  Lat/Lon Detector, Alias Generator (HuggingFace)      │ │
+│  │  Services:                                              │ │
+│  │  - Metadata Generator (orchestrator)                   │ │
+│  │  - Geographic Detector (countries/cities/states)       │ │
+│  │  - Lat/Lon Detector (coordinate identification)        │ │
+│  │  - Alias Generator (HuggingFace FLAN-T5)              │ │
+│  │  - Relationship Detector (Azure OpenAI GPT-4o)        │ │
+│  │  - Column Type Detector (dimension/measure/etc.)       │ │
 │  └────────────────────────────────────────────────────────┘ │
 └──────────┬──────────────────────┬────────────────┬──────────┘
            │                      │                │
-    ┌──────▼──────┐       ┌──────▼──────┐  ┌─────▼──────┐
-    │  Starburst  │       │  DynamoDB   │  │ HuggingFace│
-    │   (Trino)   │       │  (Metadata) │  │   Models   │
-    └─────────────┘       └─────────────┘  └────────────┘
+    ┌──────▼──────┐       ┌──────▼──────┐  ┌─────▼──────────┐
+    │  Starburst  │       │  DynamoDB   │  │  AI Services   │
+    │   (Trino)   │       │  (3 tables) │  │  - HuggingFace │
+    │             │       │             │  │  - Azure OpenAI│
+    └─────────────┘       └─────────────┘  └────────────────┘
 ```
 
-## 🚀 Features
+### DynamoDB Tables
+1. **table_metadata** - Table-level metadata and relationship detection status
+2. **column_metadata** - Column-level metadata with enrichments
+3. **table_relationships** - Discovered relationships between tables
+
+## Features
 
 ### Backend Features
-- ✅ **Automatic Metadata Generation**: Analyzes 232 tables and generates comprehensive metadata
-- 🌍 **Geographic Detection**: Identifies country, city, and state columns
-- 📍 **Coordinate Detection**: Detects latitude and longitude columns
-- 🤖 **AI-Powered Aliases**: Uses FLAN-T5 to generate human-readable column names
-- 📊 **Statistical Analysis**: Computes min, max, avg, cardinality, null counts
-- 🔄 **Schema Change Detection**: Daily worker script monitors schema changes
-- 💾 **DynamoDB Storage**: Efficient metadata storage and retrieval
-- 📝 **Comprehensive Logging**: Detailed logs for debugging and monitoring
+
+**Metadata Generation**
+- Automatic metadata generation for database tables
+- Statistical analysis (min, max, avg, cardinality, null counts)
+- Sample data extraction (1000 rows) for analysis
+- Column type detection (identifier, dimension, measure, timestamp, detail)
+- Semantic type detection (14+ types including geographic and coordinate types)
+
+**Geographic Intelligence**
+- Country detection with ISO code support
+- State/province detection (administrative level 2)
+- City detection (administrative level 3)
+- Latitude/longitude detection with range validation
+- WKT and GeoJSON geometry detection
+- Geometry type classification
+
+**AI-Powered Enrichment**
+- Human-readable alias generation using HuggingFace FLAN-T5
+- Business-context descriptions using AI
+- Fallback to rule-based generation for reliability
+- 40+ abbreviation expansions
+
+**Relationship Discovery**
+- Intelligent relationship detection using Azure OpenAI GPT-4o/GPT-5
+- Three main relationship types: foreign_key, semantic, name_based
+- Custom subtypes for granular classification
+- Confidence scoring (0-1 scale)
+- Column filtering: excludes geospatial and measure columns from analysis
+- Focuses on SQL join-relevant columns for RAG/SQL generation
+
+**Schema Management**
+- Schema change detection (new columns, removed columns, type changes)
+- Status tracking (CURRENT vs SCHEMA_CHANGED)
+- Daily monitoring with worker script
+
+**Performance & Scalability**
+- Non-blocking relationship detection (runs in separate thread)
+- Batch processing for large column counts (15 columns per statistics query)
+- Efficient DynamoDB queries with proper indexing
+- Lazy-loading of AI models
+
+**Authentication & Security**
+- Token-based authentication with 3-day expiration
+- Integration with corporate auth endpoint
+- Request middleware for authorization
+- Fernet encryption for tokens
 
 ### Frontend Features
-- 🔍 **Searchable Table Selector**: 232 tables, instantly searchable
-- 📋 **Table Data Viewer**: View sample data with 100 rows
-- 📊 **Metadata Viewer**: Beautiful card-based metadata display
-- ✏️ **Inline Alias Editing**: Update aliases directly in the UI
-- 🔔 **Schema Change Alerts**: Visual alerts when schemas change
-- 🎨 **Clean, Minimalistic UI**: Functional and easy to use
-- 📱 **Responsive Design**: Works on all devices
 
-## 📋 Prerequisites
+**Dual Navigation**
+- Browse Page: Sidebar navigation with focused single-table view
+- Enriched Tables Page: Grid view of all tables with metadata
+
+**Metadata Viewer**
+- Beautiful card-based metadata display
+- Inline editing for aliases, descriptions, column types, and semantic types
+- Statistics modal for detailed column information
+- Raw JSON view for debugging
+- Collapsible sections for better organization
+
+**Table Data Viewer**
+- Sample data display (100 rows, expandable)
+- Column type icons and visual indicators
+- Responsive table with horizontal scrolling
+
+**Relationship Viewer**
+- Automatic relationship discovery display
+- Grouped by relationship type (foreign_key, semantic, name_based)
+- Confidence badges (high/medium/low)
+- Expandable cards with reasoning
+- Real-time updates when relationships complete
+
+**Status Tracking**
+- Real-time status banners for background processes
+- Blue banner: "Finding Relationships" (can navigate away)
+- Green banner: "Relationships Ready"
+- Red banner: "Relationship Detection Failed"
+- Automatic refresh when relationships complete
+
+**UI/UX**
+- Dark/light mode with warm beige background (light mode)
+- Searchable table selector with cascade (catalog -> schema -> table)
+- Schema change alerts
+- Responsive design for all devices
+- Clean, minimalistic interface
+
+## Prerequisites
 
 ### Backend
 - Python 3.10+
 - Access to Starburst/Trino cluster
 - AWS credentials with DynamoDB access
-- DDL files for all 232 tables
+- Azure OpenAI API access (GPT-4o or GPT-5)
+- Corporate authentication endpoint (HERE)
 
 ### Frontend
 - Node.js 16+
 - npm or yarn
 
-## 🛠️ Quick Start
+## Quick Start
 
 ### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
-cd metadata-explorer
+cd semantic-layer
 ```
 
 ### 2. Setup Backend
@@ -86,12 +170,10 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your configuration (see Configuration section)
 
-# Create DynamoDB tables (see backend/README.md)
-
-# Generate initial metadata
-python scripts/initial_setup.py
+# Create DynamoDB tables
+# See backend/README.md for table creation scripts
 
 # Start API server
 python -m app.main
@@ -116,89 +198,215 @@ npm start
 
 Frontend will open at `http://localhost:3000`
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-metadata-explorer/
+semantic-layer/
 ├── backend/
 │   ├── app/
-│   │   ├── api/              # API endpoints
-│   │   ├── models/           # Pydantic models
-│   │   ├── services/         # Business logic
-│   │   ├── utils/            # Utilities
-│   │   ├── config.py         # Configuration
-│   │   └── main.py           # FastAPI app
+│   │   ├── api/                    # API endpoints (6 routers)
+│   │   │   ├── tables.py          # Table listing and data
+│   │   │   ├── metadata.py        # Metadata CRUD
+│   │   │   ├── relationships_api.py # Relationship queries
+│   │   │   ├── enriched_tables_api.py # Enriched tables listing
+│   │   │   ├── auth.py            # Authentication
+│   │   │   └── admin.py           # Background tasks
+│   │   ├── models/                # Pydantic models
+│   │   │   ├── table.py           # Table metadata models
+│   │   │   ├── column.py          # Column metadata models
+│   │   │   └── api.py             # API request/response models
+│   │   ├── services/              # Business logic (11 services)
+│   │   │   ├── metadata_generator.py      # Main orchestrator
+│   │   │   ├── relationship_detector.py   # Azure OpenAI relationships
+│   │   │   ├── relationship_tasks.py      # Background thread runner
+│   │   │   ├── geographic_detector.py     # Geographic detection
+│   │   │   ├── column_type_detector.py    # Column classification
+│   │   │   ├── alias_generator.py         # AI alias generation
+│   │   │   ├── dynamodb.py                # DynamoDB operations
+│   │   │   ├── dynamodb_relationships.py  # Relationship storage
+│   │   │   ├── starburst.py               # Trino/Starburst client
+│   │   │   ├── auth_service.py            # Authentication
+│   │   │   └── schema_comparator.py       # Schema change detection
+│   │   ├── middleware/            # Request middleware
+│   │   │   └── auth_middleware.py # Authentication middleware
+│   │   ├── utils/                 # Utilities
+│   │   │   ├── logger.py          # Loguru logging
+│   │   │   ├── auth_utils.py      # Auth helpers
+│   │   │   └── ddl_parser.py      # SQL DDL parsing
+│   │   ├── config.py              # Configuration management
+│   │   └── main.py                # FastAPI app
 │   ├── scripts/
-│   │   ├── initial_setup.py          # Initial metadata generation
-│   │   └── worker_schema_checker.py  # Schema change detection
-│   ├── schema/               # DDL files (232 .sql files)
+│   │   ├── initial_setup.py               # Initial metadata generation
+│   │   └── worker_schema_checker.py       # Schema change worker
+│   ├── schema/                    # DDL files
 │   └── requirements.txt
 ├── frontend/
+│   ├── public/
+│   │   └── index.html             # HTML template (title: Semantic Layer)
 │   ├── src/
-│   │   ├── components/       # React components
-│   │   ├── services/         # API client
-│   │   ├── App.jsx           # Main app
-│   │   └── index.js          # Entry point
+│   │   ├── components/            # React components
+│   │   │   ├── Login.jsx          # Authentication UI
+│   │   │   ├── Header.jsx         # Top navigation
+│   │   │   ├── LeftRail.jsx       # Collapsible sidebar
+│   │   │   ├── TableSelector.jsx  # Catalog/Schema/Table selector
+│   │   │   ├── TableDataViewer.jsx # Sample data display
+│   │   │   ├── MetadataViewer.jsx  # Metadata display and editing
+│   │   │   ├── RelationshipsViewer.jsx # Relationship display
+│   │   │   ├── EnrichedTablesPage.jsx  # Table listing page
+│   │   │   ├── MetadataEditModal.jsx   # Modal wrapper
+│   │   │   ├── SchemaChangeAlert.jsx   # Schema change banner
+│   │   │   └── ui/                # Reusable UI components
+│   │   ├── contexts/
+│   │   │   └── ThemeContext.jsx   # Dark/light mode
+│   │   ├── services/
+│   │   │   └── api.js             # Axios API client
+│   │   ├── App.jsx                # Main app with routing
+│   │   ├── index.js               # Entry point
+│   │   └── index.css              # Tailwind configuration
 │   └── package.json
 └── README.md
 ```
 
-## 🔧 Configuration
+## Configuration
 
-### Backend (.env)
+### Backend Environment Variables (.env)
 
 ```env
-# Starburst Configuration
+# Starburst/Trino Configuration
 STARBURST_HOST=your-starburst-host.com
-STARBURST_CATALOG=your_catalog
-STARBURST_SCHEMA=your_schema
+STARBURST_PORT=443
+STARBURST_CATALOG=here_explorer
+STARBURST_SCHEMA=explorer_datasets
 STARBURST_USER=your_username
 STARBURST_PASSWORD=your_password
+STARBURST_HTTP_SCHEME=https
 
-# DynamoDB
+# DynamoDB Configuration
 AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key  # Optional (uses default credentials)
+AWS_SECRET_ACCESS_KEY=your_secret  # Optional
+AWS_SESSION_TOKEN=your_token       # Optional
 DYNAMODB_TABLE_METADATA_TABLE=table_metadata
 DYNAMODB_COLUMN_METADATA_TABLE=column_metadata
 
-# HuggingFace Models
+# Azure OpenAI Configuration (for relationship detection)
+AZURE_OPENAI_API_KEY=your_api_key
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=gpt-5
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+
+# Authentication
+SESSION_SECRET_KEY=your-32-byte-secret-key-for-encryption
+
+# AI Models (HuggingFace)
 ALIAS_MODEL=google/flan-t5-base
 DESCRIPTION_MODEL=google/flan-t5-base
+NER_MODEL=dslim/bert-base-NER
+SENTENCE_TRANSFORMER_MODEL=sentence-transformers/all-MiniLM-L6-v2
+
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+LOG_LEVEL=INFO
 ```
 
-### Frontend (.env)
+### Frontend Environment Variables (.env)
 
 ```env
 REACT_APP_API_URL=http://localhost:8000
 ```
 
-## 📊 Metadata Generation Process
+## Metadata Generation Process
 
-1. **Parse DDL**: Extract schema from DDL files
-2. **Query Statistics**: Run aggregate queries (min/max/avg/cardinality)
-3. **Sample Data**: Get random 1000 rows for analysis
-4. **Geographic Detection**: Check for countries/cities/states
-5. **Lat/Lon Detection**: Identify coordinate columns
-6. **AI Generation**: Generate aliases and descriptions using FLAN-T5
-7. **Store Metadata**: Save to DynamoDB
+The system follows a comprehensive pipeline to generate metadata:
 
-## 🔄 Schema Change Detection
+### Phase 1: Metadata Generation (1-2 minutes)
 
-Daily worker script checks all tables for schema changes:
+1. **Schema Extraction**
+   - Connect to Starburst/Trino
+   - Execute DESCRIBE command to get column names and data types
+
+2. **Statistics Collection**
+   - Query row count for the table
+   - Batch process columns (15 per query) for statistics:
+     - MIN, MAX, AVG values
+     - APPROX_DISTINCT for cardinality
+     - NULL counts and percentages
+
+3. **Sample Data Retrieval**
+   - Extract 1000 random rows using ORDER BY RANDOM()
+   - Used for pattern analysis and validation
+
+4. **Column Analysis** (for each column)
+   - **Type Detection**: Classify as identifier, dimension, measure, timestamp, or detail
+   - **Semantic Detection**: Identify geographic types, coordinates, geometries
+   - **Alias Generation**: Use HuggingFace FLAN-T5 to create human-readable names
+   - **Description Generation**: Generate business-context descriptions with AI
+
+5. **Storage**
+   - Save table metadata to DynamoDB (table_metadata table)
+   - Save column metadata to DynamoDB (column_metadata table)
+   - Set relationship_detection_status to IN_PROGRESS
+
+### Phase 2: Relationship Detection (3-5 minutes, runs in background)
+
+1. **Column Filtering**
+   - Exclude geospatial columns (latitude, longitude, wkt_geometry, geojson_geometry, geometry_type)
+   - Exclude measure columns (aggregated values, metrics)
+   - Focus on join-relevant columns (identifiers, dimensions)
+
+2. **Comparison Processing**
+   - Load metadata for the new table
+   - Load metadata for all existing enriched tables
+   - Process source columns in batches of 20
+   - Compare against each target table individually
+
+3. **AI Relationship Detection**
+   - Call Azure OpenAI GPT-4o/GPT-5 with column metadata
+   - Provide context: column names, types, semantic types, descriptions, cardinality
+   - Detect three main types:
+     - **foreign_key**: Traditional referential integrity (subtypes: one_to_many, many_to_many, etc.)
+     - **semantic**: Same business meaning (subtypes: geographic, temporal, hierarchical, etc.)
+     - **name_based**: Similar naming patterns (subtypes: exact_match, partial_match, etc.)
+   - Calculate confidence scores (0-1 scale)
+
+4. **Filtering and Storage**
+   - Filter relationships by confidence threshold (default: 0.6)
+   - Store relationships to DynamoDB (table_relationships table)
+   - Update relationship_detection_status to COMPLETED
+
+### User Experience
+
+- Users see metadata after Phase 1 completes (1-2 minutes)
+- Blue status banner shows "Finding Relationships" during Phase 2
+- Users can navigate away and return later
+- Green banner appears when relationships are ready
+- Relationships section auto-populates when detection completes
+
+## Schema Change Detection
+
+Monitor tables for schema changes with the worker script:
 
 ```bash
 # Run manually
+cd backend
 python scripts/worker_schema_checker.py
 
 # Schedule with cron (daily at 2 AM)
-0 2 * * * cd /path/to/backend && python scripts/worker_schema_checker.py
+0 2 * * * cd /path/to/semantic-layer/backend && python scripts/worker_schema_checker.py
 ```
 
-Detects:
-- New columns
-- Removed columns
+**Detects:**
+- New columns added
+- Columns removed
 - Data type changes
 
-## 📖 API Documentation
+**Status Updates:**
+- Sets schema_status to SCHEMA_CHANGED
+- Stores detailed change information
+- Frontend displays visual alerts
+
+## API Documentation
 
 Once the backend is running, visit:
 - **Swagger UI**: http://localhost:8000/docs
@@ -206,16 +414,217 @@ Once the backend is running, visit:
 
 ### Key Endpoints
 
+**Authentication**
 ```
-GET  /api/tables                           # Get all tables
-GET  /api/table-data/{table_name}          # Get sample data
-GET  /api/metadata/{table_name}            # Get metadata
-POST /api/refresh-metadata/{table_name}    # Refresh metadata
-PATCH /api/column/{table}/{column}/alias   # Update aliases
-POST /api/admin/generate-metadata          # Generate metadata
+POST   /api/auth/login                        # Login with credentials
+GET    /api/auth/me                           # Get current user
+POST   /api/auth/logout                       # Logout
 ```
 
-## 🧪 Testing
+**Catalogs & Tables**
+```
+GET    /api/catalogs                          # List all catalogs
+GET    /api/catalogs/{catalog}/schemas        # List schemas in catalog
+GET    /api/catalogs/{catalog}/schemas/{schema}/tables  # List tables
+GET    /api/tables                            # Get tables with metadata
+GET    /api/enriched-tables                   # Get enriched tables list
+GET    /api/table-data/{catalog}/{schema}/{table}?limit=1000  # Sample data
+```
+
+**Metadata Operations**
+```
+GET    /api/metadata/{catalog}/{schema}/{table}        # Get complete metadata
+POST   /api/refresh-metadata/{catalog}/{schema}/{table} # Regenerate metadata
+PATCH  /api/column/{catalog}/{schema}/{table}/{column}/alias  # Update aliases
+PATCH  /api/column/{catalog}/{schema}/{table}/{column}/metadata  # Update metadata
+```
+
+**Relationships**
+```
+GET    /api/relationships/{catalog}/{schema}/{table}           # All relationships
+GET    /api/relationships/{catalog}/{schema}/{table}/type/{type}  # Filter by type
+GET    /api/relationships/{catalog}/{schema}/{table}/count     # Count by type
+```
+
+**Admin & Background Tasks**
+```
+POST   /api/admin/generate-metadata           # Start metadata generation
+GET    /api/admin/task-status/{task_id}       # Check task progress
+```
+
+## Deployment
+
+### Backend Deployment
+
+**Recommended Platforms:**
+- AWS EC2 (full virtual machine, supports threading)
+- AWS ECS/Fargate (container-based, supports threading)
+- AWS Elastic Beanstalk (managed EC2, supports threading)
+
+**NOT Recommended:**
+- AWS Lambda (15-minute timeout, background threads may be killed)
+
+**Docker Containerization:**
+
+```dockerfile
+FROM python:3.10
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["python", "-m", "app.main"]
+```
+
+**Deployment Steps:**
+1. Create Docker image
+2. Push to container registry (ECR)
+3. Deploy to EC2 or ECS
+4. Configure environment variables
+5. Set up DynamoDB tables
+6. Configure load balancer (optional)
+7. Schedule schema change worker script
+
+**Threading Considerations:**
+The relationship detection system uses Python threading to run background tasks without blocking metadata generation. This works perfectly on EC2/ECS but may have issues on Lambda. Ensure your deployment platform supports long-running background threads.
+
+### Frontend Deployment
+
+**Build Production Bundle:**
+
+```bash
+cd frontend
+npm run build
+```
+
+**Deployment Options:**
+1. **AWS S3 + CloudFront**: Static hosting with CDN
+2. **AWS Amplify**: Managed static hosting
+3. **Netlify/Vercel**: Third-party static hosting
+4. **Nginx**: Self-hosted
+
+**Configuration:**
+- Set `REACT_APP_API_URL` to production backend URL
+- Enable CORS on backend for frontend domain
+- Configure HTTPS for production
+
+## Monitoring
+
+### Backend Logs
+
+**Log Files:**
+- `logs/app.log` - All application logs (INFO and above)
+- `logs/error.log` - Error logs only (ERROR and above)
+- Console output - Real-time logging during development
+
+**Log Format:**
+- Timestamp, log level, module, function, line number
+- Detailed context for debugging
+- Exception tracebacks with full stack traces
+
+### Key Metrics to Monitor
+
+**Performance Metrics:**
+- API response times (target: <500ms for most endpoints)
+- Metadata generation duration (typical: 1-2 minutes per table)
+- Relationship detection duration (typical: 3-5 minutes per table)
+- DynamoDB read/write latency
+- Starburst/Trino query execution time
+
+**Resource Metrics:**
+- CPU usage (threading may increase CPU load)
+- Memory usage (AI models: ~250MB each)
+- DynamoDB read/write capacity units
+- API request rate
+- Error rate and types
+
+**Business Metrics:**
+- Tables with enriched metadata
+- Relationships discovered per table
+- Schema change detection rate
+- User activity and adoption
+
+## Troubleshooting
+
+### Backend Issues
+
+**Can't connect to Starburst/Trino**
+- Verify credentials in `.env` file
+- Check network connectivity and firewall rules
+- Test connection with `trino-cli`
+- Ensure correct host, port, and scheme (http vs https)
+
+**DynamoDB access denied**
+- Check AWS credentials configuration
+- Verify IAM permissions (GetItem, PutItem, Query, Scan)
+- Use `gimme-aws-creds` for temporary credentials
+- Ensure DynamoDB tables exist and are in the correct region
+
+**Azure OpenAI errors**
+- Verify API key is correct and active
+- Check endpoint URL format
+- Ensure deployment name matches configured model
+- Monitor rate limits and quotas
+
+**HuggingFace models slow or hanging**
+- Models download on first use (~250MB each)
+- Check internet connectivity for initial download
+- Models are cached locally after first load
+- Consider using GPU for faster inference (optional)
+
+**Relationship detection not starting**
+- Check logs for threading errors
+- Verify relationship_detection_status in DynamoDB
+- Ensure Azure OpenAI credentials are configured
+- Check for background thread exceptions in logs
+
+**Background threads not completing**
+- Review deployment platform (EC2/ECS recommended, not Lambda)
+- Check thread daemon status in logs
+- Monitor for exceptions in relationship detection thread
+- Verify DynamoDB write permissions
+
+### Frontend Issues
+
+**CORS errors**
+- Ensure backend CORS settings include frontend URL
+- Check `REACT_APP_API_URL` in frontend `.env`
+- Verify backend is configured to accept requests from frontend domain
+
+**API connection failed**
+- Verify backend is running (check http://localhost:8000/docs)
+- Check network connectivity and firewall rules
+- Confirm `REACT_APP_API_URL` is correct
+- Review browser console for detailed error messages
+
+**Metadata not loading**
+- Check browser console for API errors
+- Verify authentication token is valid
+- Try logging out and logging back in
+- Check backend logs for error details
+
+**Relationships not appearing**
+- Wait for relationship detection to complete (3-5 minutes)
+- Check relationship_detection_status via API
+- Verify relationships were stored in DynamoDB
+- Refresh the page to trigger component remount
+
+**Status banner stuck on "Finding Relationships"**
+- Check backend logs for relationship detection errors
+- Verify Azure OpenAI is accessible and responding
+- Monitor DynamoDB for status updates
+- Check browser console for polling errors
+
+## Testing
 
 ### Backend Tests
 
@@ -231,131 +640,68 @@ cd frontend
 npm test
 ```
 
-## 🚀 Deployment
-
-### Backend Deployment
-
-1. **Containerize with Docker**:
-```dockerfile
-FROM python:3.10
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["python", "-m", "app.main"]
-```
-
-2. **Deploy to AWS ECS/EC2**
-3. **Configure environment variables**
-4. **Setup DynamoDB tables**
-5. **Schedule worker script**
-
-### Frontend Deployment
-
-1. **Build production bundle**:
-```bash
-npm run build
-```
-
-2. **Deploy to S3 + CloudFront** or any static hosting
-3. **Configure API URL**
-
-## 📈 Monitoring
-
-### Backend Logs
-
-Logs are written to:
-- `logs/app.log` - All logs
-- `logs/error.log` - Errors only
-- Console output
-
-### Metrics to Monitor
-
-- API response times
-- Metadata generation duration
-- DynamoDB read/write capacity
-- HuggingFace model inference time
-- Schema change detection frequency
-
-## 🐛 Troubleshooting
-
-### Backend Issues
-
-**Can't connect to Starburst**
-- Check credentials in `.env`
-- Verify network connectivity
-- Test with `trino-cli`
-
-**DynamoDB access denied**
-- Check AWS credentials
-- Verify IAM permissions
-- Use `gimme-aws-creds` for temporary credentials
-
-**HuggingFace models slow**
-- Models download on first use (~250MB each)
-- Consider using GPU for faster inference
-- Models are cached after first load
-
-### Frontend Issues
-
-**CORS errors**
-- Ensure backend CORS settings include frontend URL
-- Check `REACT_APP_API_URL`
-
-**API connection failed**
-- Verify backend is running
-- Check network/firewall
-- Confirm API URL is correct
-
-## 🤝 Contributing
+## Contributing
 
 This is an internal company tool. For contributions:
 
-1. Create a feature branch
-2. Make your changes
-3. Test thoroughly
-4. Submit a pull request
+1. Create a feature branch from main
+2. Make your changes with clear commit messages
+3. Test thoroughly (unit tests, integration tests, manual testing)
+4. Submit a pull request with detailed description
+5. Ensure all tests pass and no regressions
 
-## 📝 License
+## License
 
 Internal company tool - not for public distribution
 
-## 👥 Team
+## Team
 
 Developed by the Data Platform Team
 
-## 📞 Support
+## Support
 
 For questions or issues:
 - Check documentation in `/backend/README.md` and `/frontend/README.md`
+- Review API documentation at http://localhost:8000/docs
 - Contact the development team
 - File an issue in the repository
 
-## 🎯 Roadmap
+## Roadmap
 
-### Phase 1 (Current)
-- ✅ Metadata generation for 232 tables
-- ✅ Geographic and coordinate detection
-- ✅ AI-powered alias generation
-- ✅ Schema change detection
-- ✅ Web UI for exploration
+### Phase 1 (Completed)
+- Metadata generation for database tables
+- Geographic and coordinate detection
+- AI-powered alias and description generation
+- Relationship discovery with Azure OpenAI
+- Column filtering for relationship detection
+- Schema change detection and monitoring
+- Web UI with browse and enriched tables pages
+- Dark/light mode with warm beige background
+- Authentication with token-based security
+- Real-time status tracking for background processes
 
-### Phase 2 (Future)
-- 🔲 RAG (Retrieval Augmented Generation) integration
-- 🔲 LangChain orchestration
-- 🔲 Natural language queries
-- 🔲 Advanced analytics and insights
-- 🔲 Metadata comparison and history
-- 🔲 Bulk operations
-- 🔲 User authentication and permissions
+### Phase 2 (Planned)
+- RAG (Retrieval Augmented Generation) integration
+- LangChain orchestration for complex queries
+- Natural language to SQL query generation
+- Advanced analytics and insights dashboard
+- Metadata comparison and history tracking
+- Bulk operations for multiple tables
+- Enhanced user permissions and role-based access
+- Metadata quality scoring
+- Automated data profiling
+- Integration with data catalog systems
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - FastAPI for the excellent web framework
-- HuggingFace for transformer models
-- TanStack Table for the table component
-- React community for inspiration
+- HuggingFace for transformer models and FLAN-T5
+- Azure OpenAI for GPT-4o relationship detection
+- TanStack Table for the React table component
+- Tailwind CSS for utility-first styling
+- React community for inspiration and best practices
+- Trino/Starburst for high-performance SQL engine
 
 ---
 
-**Built with ❤️ by the Data Platform Team**
+Built by the Data Platform Team
