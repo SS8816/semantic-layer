@@ -137,7 +137,7 @@ class DynamoDBRelationshipsService:
                 "confidence": Decimal(str(confidence)),
                 "reasoning": reasoning,
                 "detected_at": datetime.utcnow().isoformat(),
-                "detected_by": "gpt-4o",
+                "detected_by": "gpt-5",
             }
 
             # Add subtype if present
@@ -188,7 +188,7 @@ class DynamoDBRelationshipsService:
                         "confidence": Decimal(str(rel["confidence"])),
                         "reasoning": rel.get("reasoning", ""),
                         "detected_at": datetime.utcnow().isoformat(),
-                        "detected_by": "gpt-4o",
+                        "detected_by": "gpt-5",
                     }
 
                     # Add subtype if present
