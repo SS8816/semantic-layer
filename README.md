@@ -10,7 +10,7 @@ The Semantic Layer automatically enriches database tables with rich metadata and
 - Automatically generate comprehensive metadata for database tables
 - Detect geographic data (countries, cities, states, coordinates)
 - Generate human-readable aliases and descriptions using AI
-- Discover relationships between tables using Azure OpenAI GPT-4o
+- Discover relationships between tables using Azure OpenAI GPT-5
 - Track schema changes with monitoring
 - Visualize table data and metadata in an intuitive UI
 - Filter relationships to focus on SQL join-relevant columns
@@ -32,7 +32,7 @@ The Semantic Layer automatically enriches database tables with rich metadata and
 │  │  - Geographic Detector (countries/cities/states)       │ │
 │  │  - Lat/Lon Detector (coordinate identification)        │ │
 │  │  - Alias Generator (HuggingFace FLAN-T5)              │ │
-│  │  - Relationship Detector (Azure OpenAI GPT-4o)        │ │
+│  │  - Relationship Detector (Azure OpenAI GPT-5)        │ │
 │  │  - Column Type Detector (dimension/measure/etc.)       │ │
 │  └────────────────────────────────────────────────────────┘ │
 └──────────┬──────────────────────┬────────────────┬──────────┘
@@ -75,7 +75,7 @@ The Semantic Layer automatically enriches database tables with rich metadata and
 - 40+ abbreviation expansions
 
 **Relationship Discovery**
-- Intelligent relationship detection using Azure OpenAI GPT-4o/GPT-5
+- Intelligent relationship detection using Azure OpenAI GPT-5
 - Three main relationship types: foreign_key, semantic, name_based
 - Custom subtypes for granular classification
 - Confidence scoring (0-1 scale)
@@ -144,7 +144,7 @@ The Semantic Layer automatically enriches database tables with rich metadata and
 - Python 3.10+
 - Access to Starburst/Trino cluster
 - AWS credentials with DynamoDB access
-- Azure OpenAI API access (GPT-4o or GPT-5)
+- Azure OpenAI API access (GPT-5)
 - Corporate authentication endpoint (HERE)
 
 ### Frontend
@@ -362,7 +362,7 @@ The system follows a comprehensive pipeline to generate metadata:
    - Compare against each target table individually
 
 3. **AI Relationship Detection**
-   - Call Azure OpenAI GPT-4o/GPT-5 with column metadata
+   - Call Azure OpenAI GPT-5 with column metadata
    - Provide context: column names, types, semantic types, descriptions, cardinality
    - Detect three main types:
      - **foreign_key**: Traditional referential integrity (subtypes: one_to_many, many_to_many, etc.)
@@ -452,70 +452,9 @@ POST   /api/admin/generate-metadata           # Start metadata generation
 GET    /api/admin/task-status/{task_id}       # Check task progress
 ```
 
-## Deployment
-
-### Backend Deployment
-
-**Recommended Platforms:**
-- AWS EC2 (full virtual machine, supports threading)
-- AWS ECS/Fargate (container-based, supports threading)
-- AWS Elastic Beanstalk (managed EC2, supports threading)
-
-**NOT Recommended:**
-- AWS Lambda (15-minute timeout, background threads may be killed)
-
-**Docker Containerization:**
-
-```dockerfile
-FROM python:3.10
-
-WORKDIR /app
-
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
-COPY . .
-
-# Expose port
-EXPOSE 8000
-
-# Run the application
-CMD ["python", "-m", "app.main"]
-```
-
-**Deployment Steps:**
-1. Create Docker image
-2. Push to container registry (ECR)
-3. Deploy to EC2 or ECS
-4. Configure environment variables
-5. Set up DynamoDB tables
-6. Configure load balancer (optional)
-7. Schedule schema change worker script
-
 **Threading Considerations:**
-The relationship detection system uses Python threading to run background tasks without blocking metadata generation. This works perfectly on EC2/ECS but may have issues on Lambda. Ensure your deployment platform supports long-running background threads.
+The relationship detection system uses Python threading to run background tasks without blocking metadata generation. This works perfectly on EC2/ECS but may have issues on Lambda.
 
-### Frontend Deployment
-
-**Build Production Bundle:**
-
-```bash
-cd frontend
-npm run build
-```
-
-**Deployment Options:**
-1. **AWS S3 + CloudFront**: Static hosting with CDN
-2. **AWS Amplify**: Managed static hosting
-3. **Netlify/Vercel**: Third-party static hosting
-4. **Nginx**: Self-hosted
-
-**Configuration:**
-- Set `REACT_APP_API_URL` to production backend URL
-- Enable CORS on backend for frontend domain
-- Configure HTTPS for production
 
 ## Monitoring
 
@@ -650,53 +589,19 @@ This is an internal company tool. For contributions:
 4. Submit a pull request with detailed description
 5. Ensure all tests pass and no regressions
 
-## License
-
-Internal company tool - not for public distribution
-
-## Team
-
-Developed by the Data Platform Team
-
 ## Support
 
 For questions or issues:
 - Check documentation in `/backend/README.md` and `/frontend/README.md`
 - Review API documentation at http://localhost:8000/docs
-- Contact the development team
+- Contact shubham.singh@here.com
 - File an issue in the repository
-
-## Roadmap
-
-### Phase 1 (Completed)
-- Metadata generation for database tables
-- Geographic and coordinate detection
-- AI-powered alias and description generation
-- Relationship discovery with Azure OpenAI
-- Column filtering for relationship detection
-- Schema change detection and monitoring
-- Web UI with browse and enriched tables pages
-- Dark/light mode with warm beige background
-- Authentication with token-based security
-- Real-time status tracking for background processes
-
-### Phase 2 (Planned)
-- RAG (Retrieval Augmented Generation) integration
-- LangChain orchestration for complex queries
-- Natural language to SQL query generation
-- Advanced analytics and insights dashboard
-- Metadata comparison and history tracking
-- Bulk operations for multiple tables
-- Enhanced user permissions and role-based access
-- Metadata quality scoring
-- Automated data profiling
-- Integration with data catalog systems
 
 ## Acknowledgments
 
 - FastAPI for the excellent web framework
 - HuggingFace for transformer models and FLAN-T5
-- Azure OpenAI for GPT-4o relationship detection
+- Azure OpenAI for GPT-5 relationship detection
 - TanStack Table for the React table component
 - Tailwind CSS for utility-first styling
 - React community for inspiration and best practices
@@ -704,4 +609,4 @@ For questions or issues:
 
 ---
 
-Built by the Data Platform Team
+Built by shubham.singh@here.com
