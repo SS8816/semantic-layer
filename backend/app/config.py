@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     azure_openai_deployment: str = "gpt-5"
     azure_openai_api_version: str = "2024-12-01-preview"
 
+    # OpenAI Configuration (for embeddings)
+    openai_api_key: str = ""
+    openai_embedding_model: str = "text-embedding-3-small"
+
+    # Neptune Configuration
+    neptune_endpoint: str = "localhost"  # Use localhost when SSH tunneling
+    neptune_port: int = 8182
+    neptune_use_iam: bool = False  # Set to True for production IAM auth
+
     # Session Configuration
     session_secret_key: str
 

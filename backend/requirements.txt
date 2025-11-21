@@ -8,6 +8,7 @@ pydantic-settings
 # Database
 boto3
 trino
+gremlinpython  # Neptune graph database
 
 # Data Processing
 pandas
@@ -17,6 +18,7 @@ numpy
 transformers
 sentence-transformers
 torch
+openai  # OpenAI embeddings for Neptune RAG
 
 # Geographic Detection
 pycountry
