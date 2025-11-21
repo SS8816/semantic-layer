@@ -98,11 +98,11 @@ def test_neptune_with_existing_tables():
                 print(f"❌ Failed to store table node")
                 continue
 
-            # Step 4: Store column nodes
-            print(f"\n💾 Step 4: Storing {len(columns)} column nodes...")
+            # Step 4: Store ALL column nodes
+            print(f"\n💾 Step 4: Storing ALL {len(columns)} column nodes...")
             columns_stored = 0
 
-            for col_name, col_metadata in list(columns.items())[:5]:  # Test with first 5 columns
+            for col_name, col_metadata in columns.items():  # Process ALL columns
                 try:
                     # Generate column embedding
                     col_embedding, col_description = embedding_service.generate_column_embedding(
@@ -130,17 +130,17 @@ def test_neptune_with_existing_tables():
                 except Exception as e:
                     print(f"   ❌ Failed to store column {col_name}: {e}")
 
-            print(f"✅ Stored {columns_stored} column nodes (limited to 5 for testing)")
+            print(f"✅ Stored {columns_stored}/{len(columns)} column nodes")
 
-            # Step 5: Store relationships
-            print(f"\n💾 Step 5: Storing relationships...")
+            # Step 5: Store ALL relationships
+            print(f"\n💾 Step 5: Storing ALL relationships...")
             relationships = relationships_service.get_relationships_by_source_table(table_name)
 
             if relationships:
                 print(f"   Found {len(relationships)} relationships")
                 rels_stored = 0
 
-                for rel in relationships[:10]:  # Test with first 10 relationships
+                for rel in relationships:  # Process ALL relationships
                     try:
                         success = neptune_service.create_relationship_edge(
                             source_table=rel['source_table'],
@@ -160,7 +160,7 @@ def test_neptune_with_existing_tables():
                     except Exception as e:
                         print(f"   ❌ Failed to store relationship: {e}")
 
-                print(f"✅ Stored {rels_stored} relationships (limited to 10 for testing)")
+                print(f"✅ Stored {rels_stored}/{len(relationships)} relationships")
             else:
                 print(f"   No relationships found for this table")
 
