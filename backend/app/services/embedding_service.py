@@ -4,7 +4,7 @@ Used for RAG (Retrieval Augmented Generation) with Neptune graph database
 """
 
 from typing import List, Dict, Any, Optional
-from openai import OpenAI
+from openai import AzureOpenAI
 
 from app.config import settings
 from app.models import TableMetadata, ColumnMetadata
@@ -12,22 +12,26 @@ from app.utils.logger import app_logger as logger
 
 
 class EmbeddingService:
-    """Service for generating embeddings using OpenAI"""
+    """Service for generating embeddings using Azure OpenAI"""
 
     def __init__(self):
-        """Initialize OpenAI client"""
+        """Initialize Azure OpenAI client"""
         self.client = None
         self.model = settings.openai_embedding_model
         logger.info(f"Embedding service initialized with model: {self.model}")
 
-    def _get_client(self) -> OpenAI:
-        """Get or create OpenAI client (lazy loading)"""
+    def _get_client(self) -> AzureOpenAI:
+        """Get or create Azure OpenAI client (lazy loading)"""
         if self.client is None:
-            if not settings.openai_api_key:
-                raise ValueError("OpenAI API key not configured")
+            if not settings.azure_openai_api_key or not settings.azure_openai_endpoint:
+                raise ValueError("Azure OpenAI credentials not configured")
 
-            self.client = OpenAI(api_key=settings.openai_api_key)
-            logger.info("OpenAI client initialized")
+            self.client = AzureOpenAI(
+                api_key=settings.azure_openai_api_key,
+                api_version=settings.azure_openai_api_version,
+                azure_endpoint=settings.azure_openai_endpoint
+            )
+            logger.info("Azure OpenAI client initialized for embeddings")
 
         return self.client
 
