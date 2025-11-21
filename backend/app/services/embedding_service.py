@@ -66,14 +66,14 @@ class EmbeddingService:
     def generate_table_embedding(
         self,
         table_metadata: TableMetadata,
-        columns: Dict[str, ColumnMetadata]
+        columns: Dict[str, Any]  # Columns can be dict or ColumnMetadata
     ) -> tuple[List[float], str]:
         """
         Generate embedding for a table based on its metadata
 
         Args:
             table_metadata: Table metadata object
-            columns: Dictionary of column metadata
+            columns: Dictionary of column metadata (can be dict or ColumnMetadata objects)
 
         Returns:
             Tuple of (embedding vector, summary text that was embedded)
@@ -87,12 +87,26 @@ class EmbeddingService:
             # Get column summaries
             column_summaries = []
             for col_name, col in columns.items():
-                col_type = col.column_type if col.column_type else "unknown"
-                semantic = f" - {col.semantic_type}" if col.semantic_type else ""
-                aliases_str = f" (aliases: {', '.join(col.aliases[:2])})" if col.aliases else ""
+                # Handle both dict and object formats
+                if isinstance(col, dict):
+                    col_type = col.get('column_type', 'unknown')
+                    semantic = f" - {col.get('semantic_type', '')}" if col.get('semantic_type') else ""
+                    aliases = col.get('aliases', [])
+                else:
+                    col_type = col.column_type if col.column_type else "unknown"
+                    semantic = f" - {col.semantic_type}" if col.semantic_type else ""
+                    aliases = col.aliases
+
+                aliases_str = f" (aliases: {', '.join(aliases[:2])})" if aliases else ""
+
+                # Get data type
+                if isinstance(col, dict):
+                    data_type = col.get('data_type', 'unknown')
+                else:
+                    data_type = col.data_type
 
                 column_summaries.append(
-                    f"{col_name} ({col.data_type}, {col_type}{semantic}){aliases_str}"
+                    f"{col_name} ({data_type}, {col_type}{semantic}){aliases_str}"
                 )
 
             # Build the summary text
@@ -124,55 +138,72 @@ Purpose: Database table containing structured data with {table_metadata.column_c
     def generate_column_embedding(
         self,
         table_name: str,
-        column_metadata: ColumnMetadata
+        column_metadata: Any  # Can be dict or ColumnMetadata
     ) -> tuple[List[float], str]:
         """
         Generate embedding for a column based on its metadata
 
         Args:
             table_name: Full table identifier
-            column_metadata: Column metadata object
+            column_metadata: Column metadata (can be dict or ColumnMetadata object)
 
         Returns:
             Tuple of (embedding vector, description text that was embedded)
         """
         try:
-            # Build comprehensive column description for embedding
-            col_name = column_metadata.column_name
-            col_type = column_metadata.column_type if column_metadata.column_type else "unknown"
-            semantic = column_metadata.semantic_type if column_metadata.semantic_type else "none"
+            # Handle both dict and object formats
+            if isinstance(column_metadata, dict):
+                col_name = column_metadata.get('column_name', 'unknown')
+                col_type = column_metadata.get('column_type', 'unknown')
+                semantic = column_metadata.get('semantic_type', 'none')
+                data_type = column_metadata.get('data_type', 'unknown')
+                description = column_metadata.get('description', 'No description')
+                aliases = column_metadata.get('aliases', [])
+                cardinality = column_metadata.get('cardinality')
+                null_percentage = column_metadata.get('null_percentage', 0)
+                sample_values = column_metadata.get('sample_values', [])
+            else:
+                col_name = column_metadata.column_name
+                col_type = column_metadata.column_type if column_metadata.column_type else "unknown"
+                semantic = column_metadata.semantic_type if column_metadata.semantic_type else "none"
+                data_type = column_metadata.data_type
+                description = column_metadata.description
+                aliases = column_metadata.aliases
+                cardinality = column_metadata.cardinality
+                null_percentage = column_metadata.null_percentage
+                sample_values = column_metadata.sample_values
 
             # Format aliases
-            aliases_str = ", ".join(column_metadata.aliases[:3]) if column_metadata.aliases else "none"
+            aliases_str = ", ".join(aliases[:3]) if aliases else "none"
 
             # Format sample values
-            sample_values = column_metadata.sample_values[:5] if column_metadata.sample_values else []
-            sample_str = ", ".join(str(v) for v in sample_values) if sample_values else "no samples"
+            sample_values_list = sample_values[:5] if sample_values else []
+            sample_str = ", ".join(str(v) for v in sample_values_list) if sample_values_list else "no samples"
 
             # Build the description text
-            description = f"""
+            col_description = f"""
 Column: {col_name} in table {table_name}
-Data type: {column_metadata.data_type}
+Data type: {data_type}
 Column type: {col_type}
 Semantic type: {semantic}
-Description: {column_metadata.description}
+Description: {description}
 Aliases: {aliases_str}
-Cardinality: {column_metadata.cardinality if column_metadata.cardinality else 'unknown'}
-Null percentage: {column_metadata.null_percentage:.1f}% if column_metadata.null_percentage else 0
+Cardinality: {cardinality if cardinality else 'unknown'}
+Null percentage: {null_percentage:.1f}% if null_percentage else 0
 Sample values: {sample_str}
 
 Purpose: A {col_type} column that stores {semantic} data, used for {'identification' if col_type == 'identifier' else 'analysis and filtering'}.
             """.strip()
 
             # Generate embedding
-            embedding = self.generate_embedding(description)
+            embedding = self.generate_embedding(col_description)
 
             logger.info(f"✅ Generated column embedding for {table_name}.{col_name} ({len(embedding)} dims)")
 
-            return embedding, description
+            return embedding, col_description
 
         except Exception as e:
-            logger.error(f"Failed to generate column embedding for {table_name}.{column_metadata.column_name}: {e}")
+            logger.error(f"Failed to generate column embedding for {table_name}.{col_name}: {e}")
             raise
 
     def generate_batch_embeddings(self, texts: List[str]) -> List[List[float]]:

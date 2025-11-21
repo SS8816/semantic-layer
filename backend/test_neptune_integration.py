@@ -109,23 +109,41 @@ def test_neptune_with_existing_tables():
                         table_name, col_metadata
                     )
 
+                    # Handle both dict and object formats
+                    if isinstance(col_metadata, dict):
+                        data_type = col_metadata.get('data_type')
+                        column_type = col_metadata.get('column_type')
+                        semantic_type = col_metadata.get('semantic_type')
+                        description = col_metadata.get('description')
+                        aliases = col_metadata.get('aliases', [])
+                        cardinality = col_metadata.get('cardinality')
+                        sample_values = col_metadata.get('sample_values', [])
+                    else:
+                        data_type = col_metadata.data_type
+                        column_type = col_metadata.column_type
+                        semantic_type = col_metadata.semantic_type
+                        description = col_metadata.description
+                        aliases = col_metadata.aliases
+                        cardinality = col_metadata.cardinality
+                        sample_values = col_metadata.sample_values
+
                     # Store column node
                     success = neptune_service.create_column_node(
                         table_name=table_name,
                         column_name=col_name,
-                        data_type=col_metadata.data_type,
-                        column_type=col_metadata.column_type,
-                        semantic_type=col_metadata.semantic_type,
-                        description=col_metadata.description,
+                        data_type=data_type,
+                        column_type=column_type,
+                        semantic_type=semantic_type,
+                        description=description,
                         column_embedding=col_embedding,
-                        aliases=col_metadata.aliases,
-                        cardinality=col_metadata.cardinality,
-                        sample_values=col_metadata.sample_values
+                        aliases=aliases,
+                        cardinality=cardinality,
+                        sample_values=sample_values
                     )
 
                     if success:
                         columns_stored += 1
-                        print(f"   ✅ {col_name} ({col_metadata.column_type})")
+                        print(f"   ✅ {col_name} ({column_type})")
 
                 except Exception as e:
                     print(f"   ❌ Failed to store column {col_name}: {e}")
