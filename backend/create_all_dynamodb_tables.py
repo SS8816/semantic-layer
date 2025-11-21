@@ -12,14 +12,14 @@ from app.config import settings
 
 def create_table_metadata():
     """
-    Create table_metadata table
+    Create table_metadata_rag_t1 table
 
     Schema:
     - Partition Key: catalog_schema_table (String) - format: "catalog.schema.table"
     - Attributes: last_updated, row_count, column_count, schema_status, relationship_detection_status
     """
     dynamodb = boto3.client('dynamodb', region_name=settings.aws_region)
-    table_name = settings.dynamodb_table_metadata_table
+    table_name = "table_metadata_rag_t1"
 
     try:
         # Check if table exists
@@ -44,10 +44,7 @@ def create_table_metadata():
                     'AttributeType': 'S'
                 }
             ],
-            ProvisionedThroughput={
-                'ReadCapacityUnits': 5,
-                'WriteCapacityUnits': 5
-            }
+            BillingMode='PAY_PER_REQUEST'  # On-demand capacity mode
         )
 
         # Wait for table to be created
@@ -63,7 +60,7 @@ def create_table_metadata():
 
 def create_column_metadata():
     """
-    Create column_metadata table
+    Create column_metadata_rag_t2 table
 
     Schema:
     - Partition Key: catalog_schema_table (String)
@@ -71,7 +68,7 @@ def create_column_metadata():
     - Attributes: data_type, aliases, description, column_type, semantic_type, statistics, etc.
     """
     dynamodb = boto3.client('dynamodb', region_name=settings.aws_region)
-    table_name = settings.dynamodb_column_metadata_table
+    table_name = "column_metadata_rag_t2"
 
     try:
         # Check if table exists
@@ -104,10 +101,7 @@ def create_column_metadata():
                     'AttributeType': 'S'
                 }
             ],
-            ProvisionedThroughput={
-                'ReadCapacityUnits': 5,
-                'WriteCapacityUnits': 5
-            }
+            BillingMode='PAY_PER_REQUEST'  # On-demand capacity mode
         )
 
         # Wait for table to be created
@@ -176,10 +170,6 @@ def create_table_relationships():
                     ],
                     'Projection': {
                         'ProjectionType': 'ALL'
-                    },
-                    'ProvisionedThroughput': {
-                        'ReadCapacityUnits': 5,
-                        'WriteCapacityUnits': 5
                     }
                 },
                 {
@@ -192,17 +182,10 @@ def create_table_relationships():
                     ],
                     'Projection': {
                         'ProjectionType': 'ALL'
-                    },
-                    'ProvisionedThroughput': {
-                        'ReadCapacityUnits': 5,
-                        'WriteCapacityUnits': 5
                     }
                 }
             ],
-            ProvisionedThroughput={
-                'ReadCapacityUnits': 5,
-                'WriteCapacityUnits': 5
-            }
+            BillingMode='PAY_PER_REQUEST'  # On-demand capacity mode
         )
 
         # Wait for table to be created
@@ -239,9 +222,13 @@ def main():
     print("=" * 60)
     print()
     print("Tables created:")
-    print(f"  1. {settings.dynamodb_table_metadata_table}")
-    print(f"  2. {settings.dynamodb_column_metadata_table}")
+    print(f"  1. table_metadata_rag_t1")
+    print(f"  2. column_metadata_rag_t2")
     print(f"  3. table_relationships")
+    print()
+    print("IMPORTANT: Update your .env file with these table names:")
+    print("  DYNAMODB_TABLE_METADATA_TABLE=table_metadata_rag_t1")
+    print("  DYNAMODB_COLUMN_METADATA_TABLE=column_metadata_rag_t2")
     print()
     print("You can now run the backend API server!")
 
