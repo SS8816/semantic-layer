@@ -105,7 +105,7 @@ const MetadataViewer = ({ tableName }) => {
     }
   }, [taskId, generating]);
 
-  // Poll relationship detection status if in_progress
+  // Poll relationship detection status if in_progress (lightweight query)
   useEffect(() => {
     if (relationshipStatus === 'in_progress' && tableName) {
       const interval = setInterval(async () => {
@@ -114,7 +114,8 @@ const MetadataViewer = ({ tableName }) => {
           if (parts.length !== 3) return;
 
           const [catalog, schema, table] = parts;
-          const data = await api.getMetadata(catalog, schema, table);
+          // Use lightweight status endpoint instead of full metadata
+          const data = await api.getRelationshipStatus(catalog, schema, table);
 
           // Update relationship status
           const newStatus = data.relationship_detection_status || 'not_started';

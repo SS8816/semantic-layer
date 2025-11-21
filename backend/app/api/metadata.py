@@ -64,6 +64,50 @@ async def get_metadata(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get(
+    "/relationship-status/{catalog}/{schema}/{table_name}",
+    responses={404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}
+)
+async def get_relationship_status(
+    catalog: str = Path(..., description="Catalog name"),
+    schema: str = Path(..., description="Schema name"),
+    table_name: str = Path(..., description="Table name")
+):
+    """
+    Get only the relationship detection status for a table (lightweight query)
+
+    This endpoint is optimized for polling - it only queries the status field
+    without fetching all column metadata.
+
+    Args:
+        catalog: Catalog name
+        schema: Schema name
+        table_name: Table name
+
+    Returns:
+        Dictionary with relationship_detection_status
+    """
+    try:
+        catalog_schema_table = f"{catalog}.{schema}.{table_name}"
+        logger.info(f"Fetching relationship status for: {catalog_schema_table}")
+
+        # Get only the status (lightweight query)
+        status = dynamodb_service.get_relationship_detection_status(catalog_schema_table)
+
+        if status is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Table '{catalog_schema_table}' not found"
+            )
+
+        return {"relationship_detection_status": status.value}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching relationship status for {catalog}.{schema}.{table_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post(
     "/refresh-metadata/{catalog}/{schema}/{table_name}",

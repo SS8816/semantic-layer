@@ -165,6 +165,19 @@ const api = {
   },
 
   /**
+   * Get only the relationship detection status for a table (lightweight)
+   * @param {string} catalog - Catalog name
+   * @param {string} schema - Schema name
+   * @param {string} tableName - Table name
+   */
+  getRelationshipStatus: async (catalog, schema, tableName) => {
+    const response = await apiClient.get(
+      `/api/relationship-status/${catalog}/${schema}/${tableName}`,
+    );
+    return response.data;
+  },
+
+  /**
    * Refresh metadata for a table
    */
   refreshMetadata: async (catalog, schema, tableName) => {
@@ -204,6 +217,21 @@ const api = {
     const response = await apiClient.patch(
       `/api/column/${catalog}/${schema}/${tableName}/${columnName}/metadata`,
       updates,
+    );
+    return response.data;
+  },
+
+  // ========== Relationship Endpoints ==========
+
+  /**
+   * Get relationships for a table
+   * @param {string} catalog - Catalog name
+   * @param {string} schema - Schema name
+   * @param {string} tableName - Table name
+   */
+  getRelationships: async (catalog, schema, tableName) => {
+    const response = await apiClient.get(
+      `/api/relationships/${catalog}/${schema}/${tableName}`,
     );
     return response.data;
   },

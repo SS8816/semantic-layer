@@ -350,6 +350,39 @@ class DynamoDBService:
             )
             return False
 
+    def get_relationship_detection_status(
+        self, catalog_schema_table: str
+    ) -> Optional[RelationshipDetectionStatus]:
+        """
+        Get only the relationship detection status for a table (lightweight query)
+
+        Args:
+            catalog_schema_table: Table identifier in format "catalog.schema.table"
+
+        Returns:
+            RelationshipDetectionStatus enum value, or None if not found
+        """
+        try:
+            response = self.table_metadata_table.get_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                ProjectionExpression="relationship_detection_status"
+            )
+
+            if "Item" not in response:
+                logger.warning(f"No metadata found for {catalog_schema_table}")
+                return None
+
+            item = response["Item"]
+            status_value = item.get("relationship_detection_status", "not_started")
+
+            return RelationshipDetectionStatus(status_value)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to get relationship detection status for {catalog_schema_table}: {e}"
+            )
+            return None
+
     # ========== Column Metadata Operations ==========
 
     def save_column_metadata(self, column_metadata: ColumnMetadata) -> bool:
