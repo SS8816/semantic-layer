@@ -35,18 +35,11 @@ def test_neptune_with_existing_tables():
         print(f"  - {table}")
     print()
 
-    # Connect to Neptune
-    try:
-        print("🔌 Connecting to Neptune...")
-        neptune_service.connect()
-        print("✅ Connected to Neptune successfully!")
-        print()
-    except Exception as e:
-        print(f"❌ Failed to connect to Neptune: {e}")
-        print("\nMake sure:")
-        print("  1. SSH tunnel is running")
-        print("  2. Neptune endpoint is correct in .env")
-        return
+    # Test Neptune Analytics connection
+    print("🔌 Testing Neptune Analytics connection...")
+    print("   Endpoint: 10.96.112.27")
+    print("   Using AWS SigV4 authentication")
+    print()
 
     # Process each table
     for i, table_name in enumerate(test_tables, 1):
@@ -231,10 +224,8 @@ def test_neptune_with_existing_tables():
         import traceback
         traceback.print_exc()
 
-    # Close connection
+    # Test complete
     print()
-    print("🔌 Closing Neptune connection...")
-    neptune_service.close()
     print("✅ Done!")
     print()
     print("=" * 80)

@@ -49,10 +49,10 @@ class Settings(BaseSettings):
     # OpenAI Configuration (for embeddings - uses Azure OpenAI)
     openai_embedding_model: str = "text-embedding-3-small"  # Deployment name in Azure
 
-    # Neptune Configuration
-    neptune_endpoint: str = "localhost"  # Use localhost when SSH tunneling
-    neptune_port: int = 8182
-    neptune_use_iam: bool = False  # Set to True for production IAM auth
+    # Neptune Analytics Configuration
+    neptune_endpoint: str = "10.96.112.27"  # Neptune Analytics IP endpoint
+    neptune_port: int = 443  # HTTPS port for Neptune Analytics
+    neptune_use_iam: bool = True  # Neptune Analytics requires IAM auth
 
     # Session Configuration
     session_secret_key: str

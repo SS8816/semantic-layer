@@ -9595,3 +9595,6 @@ Operation interrupted by user
 2025-11-18 19:00:56 | INFO     | app.services.dynamodb_relationships:get_all_relationships_for_table:281 - Found 103 total relationships for here_explorer.explorer_datasets.carto_active_2024
 2025-11-18 19:00:56 | INFO     | app.api.relationships_api:get_table_relationships:69 - Found 103 relationships for here_explorer.explorer_datasets.carto_active_2024
 2025-11-18 19:26:27 | INFO     | app.main:shutdown_event:55 - Shutting down Metadata Explorer API
+2025-11-23 18:31:48 | INFO     | app.services.dynamodb:__init__:117 - DynamoDB service initialized
+2025-11-23 18:32:15 | INFO     | app.services.dynamodb:__init__:117 - DynamoDB service initialized
+2025-11-23 18:32:16 | INFO     | app.services.geographic_detector:__init__:42 - Geographic detector initialized: 249 countries

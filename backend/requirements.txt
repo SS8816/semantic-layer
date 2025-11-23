@@ -8,7 +8,6 @@ pydantic-settings
 # Database
 boto3
 trino
-gremlinpython  # Neptune graph database
 
 # Data Processing
 pandas
@@ -31,7 +30,4 @@ requests
 
 # Logging and Monitoring
 loguru
-pycountry
-geopy
-geonames-cache
 cryptography

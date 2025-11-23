@@ -1,80 +1,103 @@
 """
-Neptune Graph Database Service for storing semantic metadata and relationships
-Uses Gremlin traversal language for graph operations
+Neptune Analytics Graph Database Service for storing semantic metadata and relationships
+Uses OpenCypher query language and AWS SigV4 authentication
 """
 
 from typing import Any, Dict, List, Optional
-from gremlin_python.driver import client, serializer
-from gremlin_python.driver.protocol import GremlinServerError
 import json
+import requests
+import boto3
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 
 from app.config import settings
 from app.utils.logger import app_logger as logger
 
 
-class NeptuneService:
-    """Service for interacting with Neptune graph database"""
+class NeptuneAnalyticsService:
+    """Service for interacting with Neptune Analytics graph database"""
 
     def __init__(self):
-        """Initialize Neptune/Gremlin client"""
+        """Initialize Neptune Analytics client"""
         self.endpoint = settings.neptune_endpoint
         self.port = settings.neptune_port
 
-        # Build Neptune endpoint URL
-        self.neptune_url = f'wss://{self.endpoint}:{self.port}/gremlin'
+        # Neptune Analytics endpoint configuration
+        # For production: use the actual Neptune Analytics endpoint hostname
+        # For testing with IP: use IP address with Host header
+        self.base_url = f"https://{self.endpoint}"
+        if self.port and self.port != 443:
+            self.base_url = f"https://{self.endpoint}:{self.port}"
 
-        # For local development with SSH tunnel, use ws:// instead of wss://
-        if self.endpoint == 'localhost':
-            self.neptune_url = f'ws://{self.endpoint}:{self.port}/gremlin'
+        # Neptune Analytics hostname for Host header
+        self.neptune_host = "g-el5ekbpdu0.us-east-1.neptune-graph.amazonaws.com"
 
-        self.client = None
-        logger.info(f"Neptune service initialized for {self.neptune_url}")
+        # AWS credentials for SigV4 signing
+        self.session = boto3.Session()
+        self.credentials = self.session.get_credentials()
 
-    def connect(self):
-        """Establish connection to Neptune"""
-        try:
-            if self.client is None:
-                self.client = client.Client(
-                    self.neptune_url,
-                    'g',
-                    message_serializer=serializer.GraphSONSerializersV2d0()
-                )
-                logger.info("Successfully connected to Neptune")
-            return self.client
-        except Exception as e:
-            logger.error(f"Failed to connect to Neptune: {e}")
-            raise
+        logger.info(f"Neptune Analytics service initialized for {self.base_url}")
 
-    def close(self):
-        """Close Neptune connection"""
-        if self.client:
-            self.client.close()
-            self.client = None
-            logger.info("Neptune connection closed")
-
-    def execute_query(self, query: str, bindings: Optional[Dict[str, Any]] = None) -> Any:
+    def execute_query(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> Any:
         """
-        Execute a Gremlin query
+        Execute an OpenCypher query on Neptune Analytics
 
         Args:
-            query: Gremlin query string
-            bindings: Optional parameter bindings
+            query: OpenCypher query string
+            parameters: Optional query parameters
 
         Returns:
-            Query result
+            Query results
         """
         try:
-            if self.client is None:
-                self.connect()
+            url = f"{self.base_url}/opencypher"
 
-            result = self.client.submit(query, bindings or {})
-            return result.all().result()
+            # Prepare request body
+            body = {
+                "query": query
+            }
+            if parameters:
+                body["parameters"] = parameters
 
-        except GremlinServerError as e:
-            logger.error(f"Gremlin server error: {e}")
+            body_json = json.dumps(body)
+
+            # Prepare headers
+            headers = {
+                'Content-Type': 'application/json',
+                'Host': self.neptune_host
+            }
+
+            # Create AWS request for signing
+            request = AWSRequest(
+                method='POST',
+                url=url,
+                data=body_json,
+                headers=headers
+            )
+
+            # Sign the request with SigV4
+            SigV4Auth(self.credentials, 'neptune-graph', 'us-east-1').add_auth(request)
+
+            # Execute the request
+            response = requests.post(
+                url,
+                data=body_json,
+                headers=dict(request.headers),
+                verify=False  # Skip SSL verification for IP-based access
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            return result.get('results', [])
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"HTTP error executing Neptune Analytics query: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"Response: {e.response.text}")
             raise
         except Exception as e:
-            logger.error(f"Error executing Neptune query: {e}")
+            logger.error(f"Error executing Neptune Analytics query: {e}")
             raise
 
     # ========== Table Node Operations ==========
@@ -89,7 +112,7 @@ class NeptuneService:
         table_summary: str
     ) -> bool:
         """
-        Create or update a table node in Neptune
+        Create or update a table node in Neptune Analytics
 
         Args:
             table_name: Full table identifier (catalog.schema.table)
@@ -103,33 +126,27 @@ class NeptuneService:
             True if successful, False otherwise
         """
         try:
-            # Convert embedding to JSON string for storage
-            embedding_json = json.dumps(table_embedding)
-
-            # Gremlin query to upsert table node
+            # OpenCypher query to merge (upsert) table node
             query = """
-            g.V().has('table', 'name', table_name).fold()
-                .coalesce(
-                    unfold(),
-                    addV('table').property('name', table_name)
-                )
-                .property('row_count', row_count)
-                .property('column_count', column_count)
-                .property('schema_status', schema_status)
-                .property('table_embedding', table_embedding)
-                .property('table_summary', table_summary)
+            MERGE (t:Table {name: $table_name})
+            SET t.row_count = $row_count,
+                t.column_count = $column_count,
+                t.schema_status = $schema_status,
+                t.table_embedding = $table_embedding,
+                t.table_summary = $table_summary
+            RETURN t
             """
 
-            bindings = {
+            parameters = {
                 'table_name': table_name,
                 'row_count': row_count,
                 'column_count': column_count,
                 'schema_status': schema_status,
-                'table_embedding': embedding_json,
+                'table_embedding': table_embedding,  # Neptune Analytics supports arrays natively
                 'table_summary': table_summary
             }
 
-            self.execute_query(query, bindings)
+            self.execute_query(query, parameters)
             logger.info(f"✅ Created/updated table node: {table_name}")
             return True
 
@@ -169,62 +186,40 @@ class NeptuneService:
             True if successful, False otherwise
         """
         try:
-            # Convert arrays to JSON strings
-            embedding_json = json.dumps(column_embedding)
-            aliases_json = json.dumps(aliases)
-            sample_values_json = json.dumps(sample_values or [])
-
-            # Create column node
-            column_query = """
-            g.V().has('column', 'full_name', full_name).fold()
-                .coalesce(
-                    unfold(),
-                    addV('column').property('full_name', full_name)
-                )
-                .property('column_name', column_name)
-                .property('data_type', data_type)
-                .property('column_type', column_type)
-                .property('semantic_type', semantic_type)
-                .property('description', description)
-                .property('column_embedding', column_embedding)
-                .property('aliases', aliases)
-                .property('cardinality', cardinality)
-                .property('sample_values', sample_values)
-            """
-
             full_name = f"{table_name}.{column_name}"
 
-            column_bindings = {
+            # OpenCypher query to create column node and relationship
+            query = """
+            MATCH (t:Table {name: $table_name})
+            MERGE (c:Column {full_name: $full_name})
+            SET c.column_name = $column_name,
+                c.data_type = $data_type,
+                c.column_type = $column_type,
+                c.semantic_type = $semantic_type,
+                c.description = $description,
+                c.column_embedding = $column_embedding,
+                c.aliases = $aliases,
+                c.cardinality = $cardinality,
+                c.sample_values = $sample_values
+            MERGE (t)-[:HAS_COLUMN]->(c)
+            RETURN c
+            """
+
+            parameters = {
+                'table_name': table_name,
                 'full_name': full_name,
                 'column_name': column_name,
                 'data_type': data_type,
                 'column_type': column_type,
                 'semantic_type': semantic_type or '',
                 'description': description,
-                'column_embedding': embedding_json,
-                'aliases': aliases_json,
+                'column_embedding': column_embedding,
+                'aliases': aliases,
                 'cardinality': cardinality or 0,
-                'sample_values': sample_values_json
+                'sample_values': sample_values or []
             }
 
-            self.execute_query(column_query, column_bindings)
-
-            # Create edge from table to column
-            edge_query = """
-            g.V().has('table', 'name', table_name).as('t')
-                .V().has('column', 'full_name', full_name).as('c')
-                .coalesce(
-                    __.select('t').outE('HAS_COLUMN').where(inV().as('c')),
-                    __.select('t').addE('HAS_COLUMN').to('c')
-                )
-            """
-
-            edge_bindings = {
-                'table_name': table_name,
-                'full_name': full_name
-            }
-
-            self.execute_query(edge_query, edge_bindings)
+            self.execute_query(query, parameters)
             logger.info(f"✅ Created/updated column node: {full_name}")
             return True
 
@@ -262,27 +257,23 @@ class NeptuneService:
             True if successful, False otherwise
         """
         try:
-            # Create relationship edge between tables
+            # OpenCypher query to create relationship edge
             query = """
-            g.V().has('table', 'name', source_table).as('source')
-                .V().has('table', 'name', target_table).as('target')
-                .coalesce(
-                    __.select('source').outE('RELATED_TO')
-                        .has('source_column', source_column)
-                        .has('target_column', target_column)
-                        .where(inV().as('target')),
-                    __.select('source').addE('RELATED_TO').to('target')
-                        .property('source_column', source_column)
-                        .property('target_column', target_column)
-                )
-                .property('relationship_type', relationship_type)
-                .property('relationship_subtype', relationship_subtype)
-                .property('confidence', confidence)
-                .property('reasoning', reasoning)
-                .property('detected_by', detected_by)
+            MATCH (source:Table {name: $source_table})
+            MATCH (target:Table {name: $target_table})
+            MERGE (source)-[r:RELATED_TO {
+                source_column: $source_column,
+                target_column: $target_column
+            }]->(target)
+            SET r.relationship_type = $relationship_type,
+                r.relationship_subtype = $relationship_subtype,
+                r.confidence = $confidence,
+                r.reasoning = $reasoning,
+                r.detected_by = $detected_by
+            RETURN r
             """
 
-            bindings = {
+            parameters = {
                 'source_table': source_table,
                 'target_table': target_table,
                 'source_column': source_column,
@@ -294,7 +285,7 @@ class NeptuneService:
                 'detected_by': detected_by
             }
 
-            self.execute_query(query, bindings)
+            self.execute_query(query, parameters)
             logger.info(
                 f"✅ Created relationship edge: {source_table}.{source_column} → "
                 f"{target_table}.{target_column} ({relationship_type}, {confidence:.2f})"
@@ -322,10 +313,9 @@ class NeptuneService:
         """
         try:
             query = """
-            g.V().has('table', 'name', table_name)
-                .project('table', 'columns')
-                .by(valueMap(true))
-                .by(out('HAS_COLUMN').valueMap(true).fold())
+            MATCH (t:Table {name: $table_name})
+            OPTIONAL MATCH (t)-[:HAS_COLUMN]->(c:Column)
+            RETURN t, collect(c) as columns
             """
 
             result = self.execute_query(query, {'table_name': table_name})
@@ -350,12 +340,8 @@ class NeptuneService:
         """
         try:
             query = """
-            g.V().has('table', 'name', table_name)
-                .outE('RELATED_TO')
-                .project('source', 'target', 'relationship')
-                .by(outV().values('name'))
-                .by(inV().values('name'))
-                .by(valueMap(true))
+            MATCH (source:Table {name: $table_name})-[r:RELATED_TO]->(target:Table)
+            RETURN source.name as source, target.name as target, properties(r) as relationship
             """
 
             result = self.execute_query(query, {'table_name': table_name})
@@ -373,9 +359,9 @@ class NeptuneService:
             List of table names
         """
         try:
-            query = "g.V().hasLabel('table').values('name')"
+            query = "MATCH (t:Table) RETURN t.name as name"
             result = self.execute_query(query)
-            return result or []
+            return [r['name'] for r in result] if result else []
 
         except Exception as e:
             logger.error(f"Failed to get all tables: {e}")
@@ -392,19 +378,14 @@ class NeptuneService:
             True if successful, False otherwise
         """
         try:
-            # Delete all columns first
+            # Delete table, its columns, and all relationships
             query = """
-            g.V().has('table', 'name', table_name)
-                .out('HAS_COLUMN').drop()
+            MATCH (t:Table {name: $table_name})
+            OPTIONAL MATCH (t)-[:HAS_COLUMN]->(c:Column)
+            DETACH DELETE t, c
             """
-            self.execute_query(query, {'table_name': table_name})
 
-            # Delete the table and its edges
-            query = """
-            g.V().has('table', 'name', table_name).drop()
-            """
             self.execute_query(query, {'table_name': table_name})
-
             logger.info(f"✅ Deleted table node and columns: {table_name}")
             return True
 
@@ -412,6 +393,95 @@ class NeptuneService:
             logger.error(f"Failed to delete table {table_name}: {e}")
             return False
 
+    def search_similar_tables(
+        self,
+        query_embedding: List[float],
+        limit: int = 5,
+        threshold: float = 0.7
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for similar tables using vector similarity on embeddings
 
-# Global Neptune service instance
-neptune_service = NeptuneService()
+        Args:
+            query_embedding: The embedding vector to search with
+            limit: Maximum number of results to return
+            threshold: Minimum similarity threshold (0-1)
+
+        Returns:
+            List of similar tables with similarity scores
+        """
+        try:
+            # Neptune Analytics supports vector similarity search
+            # Using cosine similarity
+            query = """
+            MATCH (t:Table)
+            WITH t,
+                 gds.similarity.cosine(t.table_embedding, $query_embedding) as similarity
+            WHERE similarity >= $threshold
+            RETURN t.name as table_name,
+                   t.table_summary as summary,
+                   similarity
+            ORDER BY similarity DESC
+            LIMIT $limit
+            """
+
+            parameters = {
+                'query_embedding': query_embedding,
+                'threshold': threshold,
+                'limit': limit
+            }
+
+            result = self.execute_query(query, parameters)
+            return result or []
+
+        except Exception as e:
+            logger.error(f"Failed to search similar tables: {e}")
+            return []
+
+    def search_similar_columns(
+        self,
+        query_embedding: List[float],
+        limit: int = 10,
+        threshold: float = 0.7
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for similar columns using vector similarity on embeddings
+
+        Args:
+            query_embedding: The embedding vector to search with
+            limit: Maximum number of results to return
+            threshold: Minimum similarity threshold (0-1)
+
+        Returns:
+            List of similar columns with similarity scores
+        """
+        try:
+            query = """
+            MATCH (c:Column)
+            WITH c,
+                 gds.similarity.cosine(c.column_embedding, $query_embedding) as similarity
+            WHERE similarity >= $threshold
+            RETURN c.full_name as column_name,
+                   c.description as description,
+                   c.column_type as column_type,
+                   similarity
+            ORDER BY similarity DESC
+            LIMIT $limit
+            """
+
+            parameters = {
+                'query_embedding': query_embedding,
+                'threshold': threshold,
+                'limit': limit
+            }
+
+            result = self.execute_query(query, parameters)
+            return result or []
+
+        except Exception as e:
+            logger.error(f"Failed to search similar columns: {e}")
+            return []
+
+
+# Global Neptune Analytics service instance
+neptune_service = NeptuneAnalyticsService()
