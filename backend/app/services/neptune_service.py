@@ -120,14 +120,18 @@ class NeptuneAnalyticsService:
             True if successful, False otherwise
         """
         try:
+            # Convert embedding to JSON string (Neptune doesn't support large arrays as properties)
+            embedding_json = json.dumps(table_embedding)
+
             # OpenCypher query to merge (upsert) table node
             query = """
             MERGE (t:Table {name: $table_name})
             SET t.row_count = $row_count,
                 t.column_count = $column_count,
                 t.schema_status = $schema_status,
-                t.table_embedding = $table_embedding,
-                t.table_summary = $table_summary
+                t.table_embedding_json = $table_embedding_json,
+                t.table_summary = $table_summary,
+                t.embedding_dimensions = $embedding_dimensions
             RETURN t
             """
 
@@ -136,8 +140,9 @@ class NeptuneAnalyticsService:
                 'row_count': row_count,
                 'column_count': column_count,
                 'schema_status': schema_status,
-                'table_embedding': table_embedding,  # Neptune Analytics supports arrays natively
-                'table_summary': table_summary
+                'table_embedding_json': embedding_json,  # Store as JSON string
+                'table_summary': table_summary,
+                'embedding_dimensions': len(table_embedding)
             }
 
             self.execute_query(query, parameters)
@@ -182,6 +187,11 @@ class NeptuneAnalyticsService:
         try:
             full_name = f"{table_name}.{column_name}"
 
+            # Convert arrays to JSON strings (Neptune doesn't support large arrays)
+            embedding_json = json.dumps(column_embedding)
+            aliases_json = json.dumps(aliases)
+            sample_values_json = json.dumps(sample_values or [])
+
             # OpenCypher query to create column node and relationship
             query = """
             MATCH (t:Table {name: $table_name})
@@ -191,10 +201,11 @@ class NeptuneAnalyticsService:
                 c.column_type = $column_type,
                 c.semantic_type = $semantic_type,
                 c.description = $description,
-                c.column_embedding = $column_embedding,
-                c.aliases = $aliases,
+                c.column_embedding_json = $column_embedding_json,
+                c.aliases_json = $aliases_json,
                 c.cardinality = $cardinality,
-                c.sample_values = $sample_values
+                c.sample_values_json = $sample_values_json,
+                c.embedding_dimensions = $embedding_dimensions
             MERGE (t)-[:HAS_COLUMN]->(c)
             RETURN c
             """
@@ -207,10 +218,11 @@ class NeptuneAnalyticsService:
                 'column_type': column_type,
                 'semantic_type': semantic_type or '',
                 'description': description,
-                'column_embedding': column_embedding,
-                'aliases': aliases,
+                'column_embedding_json': embedding_json,  # Store as JSON string
+                'aliases_json': aliases_json,  # Store as JSON string
                 'cardinality': cardinality or 0,
-                'sample_values': sample_values or []
+                'sample_values_json': sample_values_json,  # Store as JSON string
+                'embedding_dimensions': len(column_embedding)
             }
 
             self.execute_query(query, parameters)
@@ -396,6 +408,10 @@ class NeptuneAnalyticsService:
         """
         Search for similar tables using vector similarity on embeddings
 
+        NOTE: This requires Neptune Analytics vector index to be configured.
+        Embeddings are stored as JSON strings, so vector similarity needs special handling.
+        For now, this is a placeholder - implement after setting up vector index.
+
         Args:
             query_embedding: The embedding vector to search with
             limit: Maximum number of results to return
@@ -405,28 +421,10 @@ class NeptuneAnalyticsService:
             List of similar tables with similarity scores
         """
         try:
-            # Neptune Analytics supports vector similarity search
-            # Using cosine similarity
-            query = """
-            MATCH (t:Table)
-            WITH t,
-                 gds.similarity.cosine(t.table_embedding, $query_embedding) as similarity
-            WHERE similarity >= $threshold
-            RETURN t.name as table_name,
-                   t.table_summary as summary,
-                   similarity
-            ORDER BY similarity DESC
-            LIMIT $limit
-            """
-
-            parameters = {
-                'query_embedding': query_embedding,
-                'threshold': threshold,
-                'limit': limit
-            }
-
-            result = self.execute_query(query, parameters)
-            return result or []
+            logger.warning("Vector similarity search not yet implemented - requires Neptune vector index setup")
+            # TODO: Implement with Neptune Analytics vector index
+            # Will need to decode JSON embeddings and use Neptune's vector similarity
+            return []
 
         except Exception as e:
             logger.error(f"Failed to search similar tables: {e}")
@@ -441,6 +439,10 @@ class NeptuneAnalyticsService:
         """
         Search for similar columns using vector similarity on embeddings
 
+        NOTE: This requires Neptune Analytics vector index to be configured.
+        Embeddings are stored as JSON strings, so vector similarity needs special handling.
+        For now, this is a placeholder - implement after setting up vector index.
+
         Args:
             query_embedding: The embedding vector to search with
             limit: Maximum number of results to return
@@ -450,27 +452,10 @@ class NeptuneAnalyticsService:
             List of similar columns with similarity scores
         """
         try:
-            query = """
-            MATCH (c:Column)
-            WITH c,
-                 gds.similarity.cosine(c.column_embedding, $query_embedding) as similarity
-            WHERE similarity >= $threshold
-            RETURN c.full_name as column_name,
-                   c.description as description,
-                   c.column_type as column_type,
-                   similarity
-            ORDER BY similarity DESC
-            LIMIT $limit
-            """
-
-            parameters = {
-                'query_embedding': query_embedding,
-                'threshold': threshold,
-                'limit': limit
-            }
-
-            result = self.execute_query(query, parameters)
-            return result or []
+            logger.warning("Vector similarity search not yet implemented - requires Neptune vector index setup")
+            # TODO: Implement with Neptune Analytics vector index
+            # Will need to decode JSON embeddings and use Neptune's vector similarity
+            return []
 
         except Exception as e:
             logger.error(f"Failed to search similar columns: {e}")
