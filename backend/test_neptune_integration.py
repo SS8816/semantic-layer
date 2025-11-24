@@ -17,13 +17,16 @@ from app.utils.logger import app_logger as logger
 
 
 def test_neptune_with_existing_tables():
-    """Test Neptune integration with existing 3 tables"""
+    """Test Neptune integration with existing tables"""
 
-    # The 3 tables you already have metadata for
+    # The tables you already have metadata for
+    # Add or remove tables as needed
     test_tables = [
         "here_explorer.explorer_datasets.carto_active_2022",
         "here_explorer.explorer_datasets.carto_active_2023",
         "here_explorer.explorer_datasets.carto_active_2024",
+        "here_explorer.explorer_datasets.carto_active_2025",
+        # "here_explorer.explorer_datasets.your_5th_table",  # Add your 5th table here
     ]
 
     print("=" * 80)
@@ -37,7 +40,8 @@ def test_neptune_with_existing_tables():
 
     # Test Neptune Analytics connection
     print("🔌 Testing Neptune Analytics connection...")
-    print("   Endpoint: 10.96.112.27")
+    print(f"   Endpoint: {neptune_service.endpoint}")
+    print(f"   Base URL: {neptune_service.base_url}")
     print("   Using AWS SigV4 authentication")
     print()
 
@@ -144,10 +148,19 @@ def test_neptune_with_existing_tables():
             print(f"✅ Stored {columns_stored}/{len(columns)} column nodes")
 
             # Step 5: Store ALL relationships
-            print(f"\n💾 Step 5: Storing ALL relationships...")
-            relationships = relationships_service.get_relationships_by_source_table(table_name)
+            print(f"\n💾 Step 5: Storing relationships...")
 
-            if relationships:
+            # Check relationship detection status
+            rel_status = table_metadata.relationship_detection_status.value if hasattr(table_metadata.relationship_detection_status, 'value') else str(table_metadata.relationship_detection_status)
+            print(f"   Relationship detection status: {rel_status}")
+
+            try:
+                relationships = relationships_service.get_relationships_by_source_table(table_name)
+            except Exception as e:
+                print(f"   ⚠️  Warning: Could not fetch relationships from DynamoDB: {e}")
+                relationships = None
+
+            if relationships and len(relationships) > 0:
                 print(f"   Found {len(relationships)} relationships")
                 rels_stored = 0
 
@@ -173,7 +186,21 @@ def test_neptune_with_existing_tables():
 
                 print(f"✅ Stored {rels_stored}/{len(relationships)} relationships")
             else:
-                print(f"   No relationships found for this table")
+                if rel_status == 'completed':
+                    print(f"   ℹ️  No relationships found (detection completed, but no matches)")
+                elif rel_status == 'not_started':
+                    print(f"   ℹ️  Relationship detection not started yet")
+                    print(f"   💡 Run relationship detection from the UI or trigger it manually")
+                elif rel_status == 'in_progress':
+                    print(f"   ⏳ Relationship detection is still in progress")
+                    print(f"   💡 Wait for it to complete, then re-run this script")
+                elif rel_status == 'failed':
+                    print(f"   ⚠️  Relationship detection failed previously")
+                    print(f"   💡 Check logs and retry relationship detection")
+                else:
+                    print(f"   ℹ️  No relationships found for this table")
+
+                print(f"   → Skipping relationship edges (table and column nodes will still be created)")
 
             print(f"\n✅ Successfully processed {table_name}")
 

@@ -9598,3 +9598,5 @@ Operation interrupted by user
 2025-11-23 18:31:48 | INFO     | app.services.dynamodb:__init__:117 - DynamoDB service initialized
 2025-11-23 18:32:15 | INFO     | app.services.dynamodb:__init__:117 - DynamoDB service initialized
 2025-11-23 18:32:16 | INFO     | app.services.geographic_detector:__init__:42 - Geographic detector initialized: 249 countries
+2025-11-24 11:58:57 | INFO     | app.services.dynamodb:__init__:117 - DynamoDB service initialized
+2025-11-24 11:58:57 | INFO     | app.services.geographic_detector:__init__:42 - Geographic detector initialized: 249 countries

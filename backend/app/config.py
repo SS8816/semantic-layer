@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"  # Deployment name in Azure
 
     # Neptune Analytics Configuration
-    neptune_endpoint: str = "10.96.112.27"  # Neptune Analytics IP endpoint
+    neptune_endpoint: str = "g-el5ekbpdu0.us-east-1.neptune-graph.amazonaws.com"  # Neptune Analytics hostname
     neptune_port: int = 443  # HTTPS port for Neptune Analytics
     neptune_use_iam: bool = True  # Neptune Analytics requires IAM auth
 

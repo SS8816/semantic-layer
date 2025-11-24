@@ -23,14 +23,9 @@ class NeptuneAnalyticsService:
         self.port = settings.neptune_port
 
         # Neptune Analytics endpoint configuration
-        # For production: use the actual Neptune Analytics endpoint hostname
-        # For testing with IP: use IP address with Host header
         self.base_url = f"https://{self.endpoint}"
         if self.port and self.port != 443:
             self.base_url = f"https://{self.endpoint}:{self.port}"
-
-        # Neptune Analytics hostname for Host header
-        self.neptune_host = "g-el5ekbpdu0.us-east-1.neptune-graph.amazonaws.com"
 
         # AWS credentials for SigV4 signing
         self.session = boto3.Session()
@@ -61,10 +56,9 @@ class NeptuneAnalyticsService:
 
             body_json = json.dumps(body)
 
-            # Prepare headers
+            # Prepare headers (Host header is automatically added by requests library)
             headers = {
-                'Content-Type': 'application/json',
-                'Host': self.neptune_host
+                'Content-Type': 'application/json'
             }
 
             # Create AWS request for signing
@@ -83,7 +77,7 @@ class NeptuneAnalyticsService:
                 url,
                 data=body_json,
                 headers=dict(request.headers),
-                verify=False  # Skip SSL verification for IP-based access
+                verify=True  # SSL verification enabled with proper hostname
             )
 
             response.raise_for_status()
