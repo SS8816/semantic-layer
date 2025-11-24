@@ -59,15 +59,23 @@ For 600 tables, this is **too slow** for real-time queries.
 4. Add vector index for `column_embedding_json`
 
 **Option 2: AWS CLI**
+
+First, check current configuration:
+```bash
+aws neptune-graph get-graph \
+  --graph-identifier g-el5ekbpdu0 \
+  --region us-east-1
+```
+
+Then update with vector search configuration:
 ```bash
 aws neptune-graph update-graph \
   --graph-identifier g-el5ekbpdu0 \
-  --vector-search-configuration '{
-    "dimension": 1536,
-    "properties": ["table_embedding_json", "column_embedding_json"]
-  }' \
+  --vector-search-configuration dimension=1536 \
   --region us-east-1
 ```
+
+Note: The exact syntax for vector configuration may vary. Consult AWS documentation or use AWS Console for initial setup.
 
 **Option 3: CloudFormation/Terraform**
 Add vector search configuration to infrastructure-as-code.

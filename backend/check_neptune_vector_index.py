@@ -86,9 +86,10 @@ def check_vector_index():
                 print(f"❌ Vector similarity function failed")
                 print(f"   Error: {error_msg}")
 
-                if "vectorSimilarity" in error_msg or "not found" in error_msg.lower():
-                    print(f"\n⚠️  VECTOR INDEX IS NOT CONFIGURED")
+                if "400" in error_msg or "vectorSimilarity" in error_msg or "not found" in error_msg.lower():
+                    print(f"\n❌ VECTOR INDEX IS NOT CONFIGURED")
                     print(f"   Neptune Analytics doesn't recognize vectorSimilarity function")
+                    print(f"   This confirms no vector index exists for this graph")
                     return False
         else:
             print("⚠️  No tables found to test with")
@@ -106,11 +107,12 @@ def check_vector_index():
     print()
     print("You can also check using AWS CLI:")
     print()
-    print("  aws neptune-graph describe-graph \\")
+    print("  aws neptune-graph get-graph \\")
     print("    --graph-identifier g-el5ekbpdu0 \\")
     print("    --region us-east-1")
     print()
     print("Look for 'vectorSearchConfiguration' in the output.")
+    print("If missing or empty, vector index is not configured.")
     print()
     print("="*80)
     print("ALTERNATIVE CHECK: AWS Console")
