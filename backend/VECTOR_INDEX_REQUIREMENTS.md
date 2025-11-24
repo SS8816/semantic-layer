@@ -6,7 +6,10 @@
 - Property: `table_embedding_json` (1536 dimensions)
 - Property: `column_embedding_json` (1536 dimensions)
 
-**Vector Index:** ❌ Not configured yet
+**Vector Index:** ⚠️ Configured with WRONG dimension
+- Current Neptune config: **2048 dimensions**
+- Our embeddings: **1536 dimensions** (Azure OpenAI text-embedding-3-small)
+- **Dimension mismatch causes vector queries to fail**
 
 ## Why We Need Vector Index
 
@@ -28,46 +31,59 @@ Currently, this would require:
 
 For 600 tables, this is **too slow** for real-time queries.
 
+## The Dimension Mismatch Problem
+
+**Discovery:** Running `aws neptune-graph get-graph` revealed:
+```json
+"vectorSearchConfiguration": {
+    "dimension": 2048
+}
+```
+
+**Issue:** Our embeddings are 1536 dimensions, but Neptune is configured for 2048.
+
+**Impact:** Vector similarity queries fail with 400 errors because dimensions don't match.
+
+**Evidence:**
+```
+Error: 400 Client Error: Bad Request
+Function: vectorSimilarity(t.table_embedding_json, [0.1, 0.1, ...])
+Reason: Dimension mismatch (provided: variable, expected: 2048)
+```
+
 ## What Needs to be Configured
 
 ### Configuration Requirements
 
 **Graph:** `cai-semantic-graph` (g-el5ekbpdu0)
 
-**Vector Indexes Needed:**
+**Current Config:** 2048 dimensions ❌
+**Required Config:** 1536 dimensions ✅
 
-1. **Table Embeddings:**
-   - Property name: `table_embedding_json`
-   - Data format: JSON array string (e.g., "[0.123, -0.456, ...]")
-   - Dimensions: 1536
-   - Similarity metric: cosine
-   - Use case: Find similar tables for RAG queries
+**Why 1536?**
+- Our embedding model: Azure OpenAI `text-embedding-3-small`
+- Output dimensions: 1536 (fixed, cannot be changed)
+- Already implemented and generating embeddings for all tables/columns
+- Changing to a different embedding model would require:
+  - Re-generating embeddings for all existing data
+  - Higher cost (larger models are more expensive)
+  - Slower performance
 
-2. **Column Embeddings:**
-   - Property name: `column_embedding_json`
-   - Data format: JSON array string
-   - Dimensions: 1536
-   - Similarity metric: cosine
-   - Use case: Find similar columns for query generation
+**Properties using embeddings:**
+1. `table_embedding_json` - 1536 dimensions
+2. `column_embedding_json` - 1536 dimensions
 
-### How to Configure
+### How to Fix the Dimension Mismatch
 
-**Option 1: AWS Console**
+**Option 1: AWS Console (Recommended)**
 1. Navigate to Neptune Analytics → Graphs → cai-semantic-graph
 2. Go to "Vector search configuration"
-3. Add vector index for `table_embedding_json`
-4. Add vector index for `column_embedding_json`
+3. Update dimension from 2048 to 1536
+4. Save changes
 
 **Option 2: AWS CLI**
 
-First, check current configuration:
-```bash
-aws neptune-graph get-graph \
-  --graph-identifier g-el5ekbpdu0 \
-  --region us-east-1
-```
-
-Then update with vector search configuration:
+Update Neptune to use 1536 dimensions:
 ```bash
 aws neptune-graph update-graph \
   --graph-identifier g-el5ekbpdu0 \
@@ -75,7 +91,11 @@ aws neptune-graph update-graph \
   --region us-east-1
 ```
 
-Note: The exact syntax for vector configuration may vary. Consult AWS documentation or use AWS Console for initial setup.
+**Important Questions to Ask:**
+1. Will this require downtime or impact existing queries?
+2. Is there existing data that depends on 2048 dimensions?
+3. Why was 2048 chosen originally?
+4. Do we need to backup before changing this?
 
 **Option 3: CloudFormation/Terraform**
 Add vector search configuration to infrastructure-as-code.
@@ -131,10 +151,11 @@ The JSON string format is **NOT a limitation** - it's the correct storage format
 
 ## Questions for Your Lead
 
-1. Can you configure vector indexes in Neptune Analytics for our graph?
-2. What's the timeline for this configuration?
-3. Do we need any special permissions or approvals?
-4. Should we use AWS Console, CLI, or IaC for this?
+1. Can you update Neptune vector dimension from 2048 to 1536?
+2. Why was 2048 dimensions chosen originally? Is there other data using it?
+3. Will updating the dimension require downtime or impact existing queries?
+4. What's the timeline for this configuration change?
+5. Should we backup before making this change?
 
 ## Next Steps After Configuration
 
