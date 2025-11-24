@@ -27,6 +27,11 @@ def execute_query(query):
     SigV4Auth(credentials, 'neptune-graph', 'us-east-1').add_auth(request)
 
     response = requests.post(url, data=body_json, headers=dict(request.headers), verify=True)
+
+    if response.status_code != 200:
+        print(f"HTTP {response.status_code}: {response.reason}")
+        print(f"Response body: {response.text}")
+
     response.raise_for_status()
 
     return response.json().get('results', [])
@@ -105,21 +110,32 @@ def test_vector_search():
 
         return True
 
-    except Exception as e:
-        error_msg = str(e)
+    except requests.exceptions.HTTPError as e:
         print(f"❌ vectorSimilarity FAILED")
-        print(f"   Error: {error_msg}")
+        print(f"   HTTP Error: {e}")
         print()
 
-        if "400" in error_msg:
-            print("Root Cause Analysis:")
-            print(f"  - Neptune is configured for 2048 dimensions")
-            print(f"  - Our embeddings are {len(embedding)} dimensions")
-            print(f"  - Dimension mismatch causes 400 Bad Request")
+        if hasattr(e, 'response') and e.response is not None:
+            print("Full Neptune Error Response:")
+            print(f"  Status Code: {e.response.status_code}")
+            print(f"  Response Body: {e.response.text}")
             print()
-            print("Solution:")
-            print(f"  Ask lead to update Neptune vector config to {len(embedding)} dimensions")
 
+            # Try to parse JSON error
+            try:
+                error_json = e.response.json()
+                print("Parsed Error Details:")
+                for key, value in error_json.items():
+                    print(f"  {key}: {value}")
+                print()
+            except:
+                pass
+
+        return False
+    except Exception as e:
+        print(f"❌ vectorSimilarity FAILED")
+        print(f"   Error: {e}")
+        print()
         return False
 
     # Step 3: Test semantic search with different tables
