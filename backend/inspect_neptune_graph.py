@@ -222,10 +222,10 @@ def inspect_neptune_graph():
     query = """
     MATCH (source)-[r]->(target)
     RETURN labels(source) as source_label,
-           source.name as source_name,
+           COALESCE(source.name, source.column_name, source.full_name) as source_name,
            type(r) as rel_type,
            labels(target) as target_label,
-           target.name as target_name
+           COALESCE(target.name, target.column_name, target.full_name) as target_name
     LIMIT 10
     """
 
@@ -246,6 +246,53 @@ def inspect_neptune_graph():
 
     except Exception as e:
         print(f"❌ Failed: {e}\n")
+
+    # Query 8: Check for orphaned vectors in index
+    print("Query 8: Check for orphaned vectors (in index but not in graph)")
+    print("-" * 80)
+    print("Checking if vector index has more nodes than graph...")
+    print()
+
+    # Use a test vector to search the index
+    test_embedding = [0.1] * 1536 + [0.0] * 512  # 2048 dims
+
+    query = f"""
+    CALL neptune.algo.vectors.topK.byEmbedding(
+        {{ embedding: {json.dumps(test_embedding)}, topK: 50 }}
+    )
+    YIELD node, score
+    RETURN count(node) as total_in_index
+    """
+
+    try:
+        result = execute_query(query)
+        total_in_index = result[0]['total_in_index'] if result else 0
+
+        # Compare with total nodes in graph
+        graph_nodes_query = "MATCH (n) RETURN count(n) as total_in_graph"
+        graph_result = execute_query(graph_nodes_query)
+        total_in_graph = graph_result[0]['total_in_graph'] if graph_result else 0
+
+        print(f"Nodes in vector index: {total_in_index}")
+        print(f"Nodes in graph: {total_in_graph}")
+        print()
+
+        if total_in_index > total_in_graph:
+            orphaned = total_in_index - total_in_graph
+            print(f"⚠️  WARNING: {orphaned} orphaned vectors detected!")
+            print(f"   These are in the vector index but not in the graph")
+            print(f"   Likely from deleted nodes (mystery tables)")
+            print()
+            print(f"   To clean up: Recreate Neptune graph or manually remove vectors")
+        elif total_in_index < total_in_graph:
+            not_upserted = total_in_graph - total_in_index
+            print(f"ℹ️  {not_upserted} nodes have embeddings stored but NOT in vector index")
+            print(f"   Need to bulk upsert these embeddings")
+        else:
+            print(f"✅ Vector index and graph are in sync!")
+
+    except Exception as e:
+        print(f"❌ Failed to check: {e}\n")
 
 
 if __name__ == "__main__":
