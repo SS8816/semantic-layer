@@ -608,7 +608,7 @@ class NeptuneAnalyticsService:
 
             # Step 8: Create relationship edges from DynamoDB
             # Get relationships involving this table (as source)
-            relationships = relationships_service.get_relationships_for_table(catalog_schema_table)
+            relationships = relationships_service.get_relationships_by_source_table(catalog_schema_table)
 
             logger.info(f"Found {len(relationships)} relationships for {catalog_schema_table}")
 
