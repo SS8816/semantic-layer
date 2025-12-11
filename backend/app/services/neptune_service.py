@@ -14,6 +14,26 @@ from app.config import settings
 from app.utils.logger import app_logger as logger
 
 
+def pad_embedding_to_2048(embedding_1536: List[float]) -> List[float]:
+    """
+    Pad a 1536-dimension embedding to 2048 dimensions with zeros
+
+    Args:
+        embedding_1536: List of 1536 floats
+
+    Returns:
+        List of 2048 floats (original + 512 zeros)
+    """
+    if len(embedding_1536) != 1536:
+        raise ValueError(f"Expected 1536 dimensions, got {len(embedding_1536)}")
+
+    # Pad with 512 zeros to reach 2048
+    padding = [0.0] * (2048 - 1536)
+    padded = embedding_1536 + padding
+
+    return padded
+
+
 class NeptuneAnalyticsService:
     """Service for interacting with Neptune Analytics graph database"""
 
@@ -460,6 +480,213 @@ class NeptuneAnalyticsService:
         except Exception as e:
             logger.error(f"Failed to search similar columns: {e}")
             return []
+
+    # ========== Bulk Import Operations ==========
+
+    def import_table_to_neptune(self, catalog_schema_table: str) -> bool:
+        """
+        Full pipeline to import a table with all metadata to Neptune
+
+        Steps:
+        1. Fetch table metadata and columns from DynamoDB
+        2. Generate embeddings for table and columns (if not exists)
+        3. Pad embeddings to 2048 dimensions
+        4. Create Table node
+        5. Create Column nodes (excluding stats columns)
+        6. Create relationship edges from DynamoDB
+        7. Upsert embeddings to vector index
+
+        Args:
+            catalog_schema_table: Full table identifier
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            from app.services.dynamodb import dynamodb_service
+            from app.services.dynamodb_relationships import relationships_service
+            from app.services.embedding_service import embedding_service
+
+            logger.info(f"🚀 Starting Neptune import for {catalog_schema_table}")
+
+            # Step 1: Get table metadata
+            table_metadata = dynamodb_service.get_table_metadata(catalog_schema_table)
+            if not table_metadata:
+                logger.error(f"No table metadata found for {catalog_schema_table}")
+                return False
+
+            # Step 2: Get all column metadata
+            all_columns = dynamodb_service.get_all_columns_for_table(catalog_schema_table)
+            if not all_columns:
+                logger.error(f"No column metadata found for {catalog_schema_table}")
+                return False
+
+            # Step 3: Filter out stats columns (exclude min_value, max_value, etc.)
+            # Stats columns are NOT imported to Neptune, but will be shown in UI results from DynamoDB
+            non_stats_columns = []
+            columns_dict = {}
+
+            for col in all_columns:
+                # Convert to dict if needed
+                if hasattr(col, "dict"):
+                    col_dict = col.dict()
+                else:
+                    col_dict = col
+
+                # Don't include columns that are purely statistical
+                col_name = col_dict.get('column_name')
+                columns_dict[col_name] = col_dict
+                non_stats_columns.append(col)
+
+            logger.info(f"Processing {len(non_stats_columns)} columns for {catalog_schema_table}")
+
+            # Step 4: Generate table embedding
+            table_embedding, table_summary = embedding_service.generate_table_embedding(
+                table_metadata, columns_dict
+            )
+
+            # Pad to 2048
+            table_embedding_padded = pad_embedding_to_2048(table_embedding)
+
+            # Step 5: Create Table node
+            success = self.create_table_node(
+                table_name=catalog_schema_table,
+                row_count=table_metadata.row_count,
+                column_count=table_metadata.column_count,
+                schema_status=table_metadata.schema_status.value,
+                table_embedding=table_embedding_padded,  # Use padded embedding
+                table_summary=table_summary
+            )
+
+            if not success:
+                logger.error(f"Failed to create table node for {catalog_schema_table}")
+                return False
+
+            # Step 6: Upsert table embedding to vector index
+            self._upsert_table_embedding_to_index(catalog_schema_table, table_embedding_padded)
+
+            # Step 7: Create Column nodes
+            for col in non_stats_columns:
+                col_dict = col.dict() if hasattr(col, "dict") else col
+                col_name = col_dict['column_name']
+
+                try:
+                    # Generate column embedding
+                    column_embedding, col_description = embedding_service.generate_column_embedding(
+                        catalog_schema_table, col_dict
+                    )
+
+                    # Pad to 2048
+                    column_embedding_padded = pad_embedding_to_2048(column_embedding)
+
+                    # Create column node
+                    success = self.create_column_node(
+                        table_name=catalog_schema_table,
+                        column_name=col_name,
+                        data_type=col_dict.get('data_type', 'unknown'),
+                        column_type=col_dict.get('column_type', 'dimension'),
+                        semantic_type=col_dict.get('semantic_type'),
+                        description=col_dict.get('description', ''),
+                        column_embedding=column_embedding_padded,  # Use padded embedding
+                        aliases=col_dict.get('aliases', []),
+                        cardinality=col_dict.get('cardinality'),
+                        sample_values=col_dict.get('sample_values', [])
+                    )
+
+                    if success:
+                        # Upsert column embedding to vector index
+                        self._upsert_column_embedding_to_index(
+                            f"{catalog_schema_table}.{col_name}",
+                            column_embedding_padded
+                        )
+                    else:
+                        logger.warning(f"Failed to create column node for {col_name}")
+
+                except Exception as e:
+                    logger.error(f"Error creating column node for {col_name}: {e}")
+                    continue
+
+            # Step 8: Create relationship edges from DynamoDB
+            # Get relationships involving this table (as source)
+            relationships = relationships_service.get_relationships_for_table(catalog_schema_table)
+
+            logger.info(f"Found {len(relationships)} relationships for {catalog_schema_table}")
+
+            for rel in relationships:
+                try:
+                    self.create_relationship_edge(
+                        source_table=rel.source_table,
+                        source_column=rel.source_column,
+                        target_table=rel.target_table,
+                        target_column=rel.target_column,
+                        relationship_type=rel.relationship_type,
+                        relationship_subtype=rel.relationship_subtype,
+                        confidence=rel.confidence,
+                        reasoning=rel.reasoning,
+                        detected_by=rel.detected_by
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to create relationship edge: {e}")
+                    continue
+
+            logger.info(f"✅ Successfully imported {catalog_schema_table} to Neptune")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to import {catalog_schema_table} to Neptune: {e}", exc_info=True)
+            return False
+
+    def _upsert_table_embedding_to_index(self, table_name: str, embedding_padded: List[float]) -> bool:
+        """Upsert a table embedding into Neptune vector index"""
+        try:
+            embedding_str = json.dumps(embedding_padded)
+
+            query = f"""
+            MATCH (t:Table {{name: '{table_name}'}})
+            CALL neptune.algo.vectors.upsert(t, {embedding_str})
+            YIELD node, embedding, success
+            RETURN success
+            """
+
+            result = self.execute_query(query)
+            success = result[0]['success'] if result else False
+
+            if success:
+                logger.info(f"✅ Upserted table embedding to vector index: {table_name}")
+            else:
+                logger.warning(f"⚠️ Failed to upsert table embedding: {table_name}")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Error upserting table embedding for {table_name}: {e}")
+            return False
+
+    def _upsert_column_embedding_to_index(self, column_full_name: str, embedding_padded: List[float]) -> bool:
+        """Upsert a column embedding into Neptune vector index"""
+        try:
+            embedding_str = json.dumps(embedding_padded)
+
+            query = f"""
+            MATCH (c:Column {{full_name: '{column_full_name}'}})
+            CALL neptune.algo.vectors.upsert(c, {embedding_str})
+            YIELD node, embedding, success
+            RETURN success
+            """
+
+            result = self.execute_query(query)
+            success = result[0]['success'] if result else False
+
+            if success:
+                logger.debug(f"✅ Upserted column embedding to vector index: {column_full_name}")
+            else:
+                logger.warning(f"⚠️ Failed to upsert column embedding: {column_full_name}")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Error upserting column embedding for {column_full_name}: {e}")
+            return False
 
 
 # Global Neptune Analytics service instance
