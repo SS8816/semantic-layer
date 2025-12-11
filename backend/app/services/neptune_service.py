@@ -621,7 +621,7 @@ class NeptuneAnalyticsService:
                         target_column=rel['target_column'],
                         relationship_type=rel['relationship_type'],
                         relationship_subtype=rel.get('relationship_subtype'),
-                        confidence=rel['confidence'],
+                        confidence=float(rel['confidence']),
                         reasoning=rel['reasoning'],
                         detected_by=rel['detected_by']
                     )
