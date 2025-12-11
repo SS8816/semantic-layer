@@ -615,15 +615,15 @@ class NeptuneAnalyticsService:
             for rel in relationships:
                 try:
                     self.create_relationship_edge(
-                        source_table=rel.source_table,
-                        source_column=rel.source_column,
-                        target_table=rel.target_table,
-                        target_column=rel.target_column,
-                        relationship_type=rel.relationship_type,
-                        relationship_subtype=rel.relationship_subtype,
-                        confidence=rel.confidence,
-                        reasoning=rel.reasoning,
-                        detected_by=rel.detected_by
+                        source_table=rel['source_table'],
+                        source_column=rel['source_column'],
+                        target_table=rel['target_table'],
+                        target_column=rel['target_column'],
+                        relationship_type=rel['relationship_type'],
+                        relationship_subtype=rel.get('relationship_subtype'),
+                        confidence=rel['confidence'],
+                        reasoning=rel['reasoning'],
+                        detected_by=rel['detected_by']
                     )
                 except Exception as e:
                     logger.warning(f"Failed to create relationship edge: {e}")
