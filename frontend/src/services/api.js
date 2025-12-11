@@ -267,6 +267,21 @@ const api = {
     const response = await apiClient.get(`/api/admin/task-status/${taskId}`);
     return response.data;
   },
+
+  // ========== Semantic Search Endpoints ==========
+
+  /**
+   * Perform semantic search using natural language query
+   * @param {string} query - Natural language query
+   * @param {number} threshold - Similarity threshold (0-1), default 0.6
+   */
+  semanticSearch: async (query, threshold = 0.6) => {
+    const response = await apiClient.post('/api/search/semantic', {
+      query,
+      threshold,
+    });
+    return response.data;
+  },
 };
 
 export default api;

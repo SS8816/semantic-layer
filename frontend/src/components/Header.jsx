@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon, User, LogOut, Database, Home, Table } from 'lucide-react';
+import { Sun, Moon, User, LogOut, Database, Home, Table, Search } from 'lucide-react';
 import { Button, Badge, Tooltip } from './ui';
 import api from '../services/api';
 
@@ -61,6 +61,17 @@ const Header = ({ user, onLogout, generationProgress }) => {
               >
                 <Table className="h-4 w-4" />
                 <span className="text-sm font-medium">Enriched Tables</span>
+              </Link>
+              <Link
+                to="/semantic-search"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  isActive('/semantic-search')
+                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Search className="h-4 w-4" />
+                <span className="text-sm font-medium">Semantic Search</span>
               </Link>
             </nav>
           </div>
