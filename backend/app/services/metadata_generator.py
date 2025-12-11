@@ -8,7 +8,13 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from app.config import settings
-from app.models import ColumnMetadata, RelationshipDetectionStatus, SchemaStatus, TableMetadata
+from app.models import (
+    ColumnMetadata,
+    EnrichmentStatus,
+    RelationshipDetectionStatus,
+    SchemaStatus,
+    TableMetadata,
+)
 from app.services.alias_generator import alias_generator
 from app.services.column_type_detector import column_type_detector
 from app.services.dynamodb import dynamodb_service
@@ -65,6 +71,25 @@ class MetadataGenerator:
                         f"Metadata already exists for {catalog_schema_table}. Use force_refresh=True to regenerate."
                     )
                     return True
+
+            # Mark enrichment as in progress
+            # Create minimal table metadata first if it doesn't exist
+            existing_metadata = self.dynamodb.get_table_metadata(catalog_schema_table)
+            if existing_metadata:
+                self.dynamodb.update_enrichment_status(
+                    catalog_schema_table, EnrichmentStatus.IN_PROGRESS
+                )
+            else:
+                # Create initial record with IN_PROGRESS status
+                initial_metadata = TableMetadata(
+                    catalog_schema_table=catalog_schema_table,
+                    last_updated=datetime.now(),
+                    row_count=0,
+                    column_count=0,
+                    schema_status=SchemaStatus.CURRENT,
+                    enrichment_status=EnrichmentStatus.IN_PROGRESS,
+                )
+                self.dynamodb.save_table_metadata(initial_metadata)
 
             # Step 1: Get schema from Starburst (always use live schema)
             logger.info(
@@ -203,6 +228,8 @@ class MetadataGenerator:
                 schema_status=SchemaStatus.CURRENT,
                 schema_change_detected_at=None,
                 schema_changes=None,
+                enrichment_status=EnrichmentStatus.COMPLETED,
+                enrichment_timestamp=datetime.now(),
             )
 
             self.dynamodb.save_table_metadata(table_metadata)
@@ -231,6 +258,11 @@ class MetadataGenerator:
             logger.error(
                 f"❌ Failed to generate metadata for {catalog}.{schema}.{table_name}: {e}",
                 exc_info=True,
+            )
+            # Mark enrichment as failed
+            catalog_schema_table = f"{catalog}.{schema}.{table_name}"
+            self.dynamodb.update_enrichment_status(
+                catalog_schema_table, EnrichmentStatus.FAILED, error_message=str(e)
             )
             return False
 

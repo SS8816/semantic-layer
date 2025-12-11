@@ -7,7 +7,9 @@ from app.models.table import (
     TableWithColumns,
     SchemaStatus,
     SchemaChange,
-    RelationshipDetectionStatus
+    EnrichmentStatus,
+    RelationshipDetectionStatus,
+    NeptuneImportStatus,
 )
 from app.models.column import (
     ColumnMetadata,
@@ -36,7 +38,9 @@ __all__ = [
     "TableWithColumns",
     "SchemaStatus",
     "SchemaChange",
+    "EnrichmentStatus",
     "RelationshipDetectionStatus",
+    "NeptuneImportStatus",
     # Column models
     "ColumnMetadata",
     "ColumnMetadataCreate",
