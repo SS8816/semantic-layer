@@ -223,20 +223,27 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
         if len(matched_table_names) >= 2:
             # Get all relationships involving any of the matched tables
             for table_name in matched_table_names:
-                rels = relationships_service.get_relationships_for_table(table_name)
-                for rel in rels:
+                # Get relationships where this table is the source
+                rels_as_source = relationships_service.get_relationships_by_source_table(table_name)
+                # Get relationships where this table is the target
+                rels_as_target = relationships_service.get_relationships_by_target_table(table_name)
+
+                # Combine both lists
+                all_rels = rels_as_source + rels_as_target
+
+                for rel in all_rels:
                     # Only include relationships where BOTH source and target are in matched tables
-                    if rel.source_table in matched_table_names and rel.target_table in matched_table_names:
+                    if rel['source_table'] in matched_table_names and rel['target_table'] in matched_table_names:
                         relationships_list.append(RelationshipResponse(
-                            source_table=rel.source_table,
-                            source_column=rel.source_column,
-                            target_table=rel.target_table,
-                            target_column=rel.target_column,
-                            relationship_type=rel.relationship_type,
-                            relationship_subtype=rel.relationship_subtype,
-                            confidence=rel.confidence,
-                            reasoning=rel.reasoning,
-                            detected_by=rel.detected_by
+                            source_table=rel['source_table'],
+                            source_column=rel['source_column'],
+                            target_table=rel['target_table'],
+                            target_column=rel['target_column'],
+                            relationship_type=rel['relationship_type'],
+                            relationship_subtype=rel.get('relationship_subtype'),
+                            confidence=float(rel['confidence']),
+                            reasoning=rel['reasoning'],
+                            detected_by=rel['detected_by']
                         ))
 
         # Remove duplicate relationships (since we query from both sides)
