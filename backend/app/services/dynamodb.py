@@ -811,7 +811,7 @@ class DynamoDBService:
 
                 response = self.dynamodb.batch_get_item(
                     RequestItems={
-                        'column_metadata': {
+                        settings.dynamodb_column_metadata_table: {
                             'Keys': keys
                         }
                     }
@@ -819,7 +819,7 @@ class DynamoDBService:
 
                 # Process results
                 items = _convert_decimals_to_python(
-                    response.get('Responses', {}).get('column_metadata', [])
+                    response.get('Responses', {}).get(settings.dynamodb_column_metadata_table, [])
                 )
 
                 for item in items:
