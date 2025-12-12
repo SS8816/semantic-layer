@@ -76,8 +76,8 @@ class AzureOpenAIGenerator:
                         "content": prompt
                     }
                 ],
-                temperature=0.7,
-                max_tokens=150
+                temperature=1.0,
+                max_completion_tokens=150
             )
 
             # Parse response
@@ -151,8 +151,8 @@ Write concise descriptions that explain what the column means in plain English, 
                         "content": prompt
                     }
                 ],
-                temperature=0.7,
-                max_tokens=100
+                temperature=1.0,
+                max_completion_tokens=100
             )
 
             # Parse and clean response
