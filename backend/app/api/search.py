@@ -179,32 +179,46 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                     similarity_score=similarity
                 ))
 
-        # Step 6: Fetch full metadata from DynamoDB for matched columns (including stats)
+        # Step 6: Batch fetch full metadata from DynamoDB for matched columns (including stats)
         column_metadata_list = []
+
+        # Build list of (table_name, column_name, similarity) tuples
+        column_keys_with_similarity = []
         for column_full_name, similarity in matched_columns:
-            # Parse table_name.column_name
             parts = column_full_name.rsplit('.', 1)
             if len(parts) == 2:
                 table_name, column_name = parts
-                column_metadata = dynamodb_service.get_column_metadata(table_name, column_name)
-                if column_metadata:
-                    column_metadata_list.append(ColumnMetadataResponse(
-                        catalog_schema_table=column_metadata.catalog_schema_table,
-                        column_name=column_metadata.column_name,
-                        data_type=column_metadata.data_type,
-                        column_type=column_metadata.column_type,
-                        semantic_type=column_metadata.semantic_type,
-                        description=column_metadata.description,
-                        aliases=column_metadata.aliases,
-                        cardinality=column_metadata.cardinality,
-                        null_percentage=column_metadata.null_percentage,
-                        sample_values=column_metadata.sample_values,
-                        # Stats columns from DynamoDB (not in Neptune)
-                        min_value=column_metadata.min_value,
-                        max_value=column_metadata.max_value,
-                        avg_value=column_metadata.avg_value,
-                        similarity_score=similarity
-                    ))
+                column_keys_with_similarity.append((table_name, column_name, similarity))
+
+        # Batch fetch column metadata
+        column_keys = [(table, col) for table, col, _ in column_keys_with_similarity]
+        columns_batch = dynamodb_service.batch_get_column_metadata(column_keys)
+
+        # Create a lookup map for similarity scores
+        similarity_map = {f"{table}.{col}": sim for table, col, sim in column_keys_with_similarity}
+
+        # Build response objects
+        for column_metadata in columns_batch:
+            full_name = f"{column_metadata.catalog_schema_table}.{column_metadata.column_name}"
+            similarity = similarity_map.get(full_name, 0.0)
+
+            column_metadata_list.append(ColumnMetadataResponse(
+                catalog_schema_table=column_metadata.catalog_schema_table,
+                column_name=column_metadata.column_name,
+                data_type=column_metadata.data_type,
+                column_type=column_metadata.column_type,
+                semantic_type=column_metadata.semantic_type,
+                description=column_metadata.description,
+                aliases=column_metadata.aliases,
+                cardinality=column_metadata.cardinality,
+                null_percentage=column_metadata.null_percentage,
+                sample_values=column_metadata.sample_values,
+                # Stats columns from DynamoDB (not in Neptune)
+                min_value=column_metadata.min_value,
+                max_value=column_metadata.max_value,
+                avg_value=column_metadata.avg_value,
+                similarity_score=similarity
+            ))
 
         # Step 7: Fetch relationships between matched tables (only A↔B, not A↔C)
         # Include tables that matched directly AND tables that have matched columns
@@ -221,16 +235,11 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
         relationships_list = []
 
         if len(matched_table_names) >= 2:
-            # Get all relationships involving any of the matched tables
-            for table_name in matched_table_names:
-                # Get relationships where this table is the source
-                rels_as_source = relationships_service.get_relationships_by_source_table(table_name)
-                # Get relationships where this table is the target
-                rels_as_target = relationships_service.get_relationships_by_target_table(table_name)
+            # Batch fetch all relationships for matched tables
+            all_rels_by_table = relationships_service.batch_get_relationships_for_tables(matched_table_names)
 
-                # Combine both lists
-                all_rels = rels_as_source + rels_as_target
-
+            # Process all relationships and filter to only those between matched tables
+            for table_name, all_rels in all_rels_by_table.items():
                 for rel in all_rels:
                     # Only include relationships where BOTH source and target are in matched tables
                     if rel['source_table'] in matched_table_names and rel['target_table'] in matched_table_names:

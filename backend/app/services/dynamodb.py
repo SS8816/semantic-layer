@@ -776,6 +776,78 @@ class DynamoDBService:
             )
             return None
 
+    def batch_get_column_metadata(
+        self, column_keys: List[tuple[str, str]]
+    ) -> List[ColumnMetadata]:
+        """
+        Batch get column metadata from DynamoDB
+
+        Args:
+            column_keys: List of (catalog_schema_table, column_name) tuples
+
+        Returns:
+            List of ColumnMetadata objects (may be fewer than requested if some don't exist)
+        """
+        try:
+            if not column_keys:
+                return []
+
+            # DynamoDB batch_get_item supports up to 100 items
+            # Split into chunks if needed
+            results = []
+            chunk_size = 100
+
+            for i in range(0, len(column_keys), chunk_size):
+                chunk = column_keys[i:i + chunk_size]
+
+                # Build request items
+                keys = [
+                    {
+                        'catalog_schema_table': table,
+                        'column_name': column
+                    }
+                    for table, column in chunk
+                ]
+
+                response = self.dynamodb.batch_get_item(
+                    RequestItems={
+                        'column_metadata': {
+                            'Keys': keys
+                        }
+                    }
+                )
+
+                # Process results
+                items = _convert_decimals_to_python(
+                    response.get('Responses', {}).get('column_metadata', [])
+                )
+
+                for item in items:
+                    column_metadata = ColumnMetadata(
+                        catalog_schema_table=item["catalog_schema_table"],
+                        column_name=item["column_name"],
+                        data_type=item["data_type"],
+                        column_type=item.get("column_type", "dimension"),
+                        semantic_type=item.get("semantic_type") if item.get("semantic_type") else None,
+                        aliases=item.get("aliases", []),
+                        description=item.get("description", ""),
+                        min_value=item.get("min_value"),
+                        max_value=item.get("max_value"),
+                        avg_value=item.get("avg_value"),
+                        cardinality=item.get("cardinality", 0),
+                        null_count=item.get("null_count", 0),
+                        null_percentage=item.get("null_percentage", 0.0),
+                        sample_values=item.get("sample_values", []),
+                    )
+                    results.append(column_metadata)
+
+            logger.info(f"Batch retrieved {len(results)} column metadata records")
+            return results
+
+        except Exception as e:
+            logger.error(f"Failed to batch get column metadata: {e}")
+            return []
+
     def get_all_columns_for_table(
         self, catalog_schema_table: str
     ) -> List[ColumnMetadata]:
