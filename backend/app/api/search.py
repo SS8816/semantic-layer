@@ -273,15 +273,18 @@ def search_tables_by_similarity(
         List of (table_name, similarity_score) tuples
     """
     try:
+        # Convert embedding to string for inlining (Neptune doesn't support parameterization in CALL)
+        embedding_str = str(query_embedding_padded)
+
         # Use CosineSimilarity with threshold filtering
-        query = """
+        query = f"""
         MATCH (t:Table)
         CALL neptune.algo.vectors.distance.byEmbedding(
             t,
-            {
-                embedding: $embedding,
+            {{
+                embedding: {embedding_str},
                 metric: "CosineSimilarity"
-            }
+            }}
         )
         YIELD distance as similarity
         WHERE similarity > $threshold
@@ -290,7 +293,6 @@ def search_tables_by_similarity(
         """
 
         result = neptune_service.execute_query(query, {
-            'embedding': query_embedding_padded,
             'threshold': threshold
         })
 
@@ -316,15 +318,18 @@ def search_columns_by_similarity(
         List of (column_full_name, similarity_score) tuples
     """
     try:
+        # Convert embedding to string for inlining (Neptune doesn't support parameterization in CALL)
+        embedding_str = str(query_embedding_padded)
+
         # Use CosineSimilarity with threshold filtering
-        query = """
+        query = f"""
         MATCH (c:Column)
         CALL neptune.algo.vectors.distance.byEmbedding(
             c,
-            {
-                embedding: $embedding,
+            {{
+                embedding: {embedding_str},
                 metric: "CosineSimilarity"
-            }
+            }}
         )
         YIELD distance as similarity
         WHERE similarity > $threshold
@@ -333,7 +338,6 @@ def search_columns_by_similarity(
         """
 
         result = neptune_service.execute_query(query, {
-            'embedding': query_embedding_padded,
             'threshold': threshold
         })
 
