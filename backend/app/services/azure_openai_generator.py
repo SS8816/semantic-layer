@@ -34,6 +34,93 @@ class AzureOpenAIGenerator:
 
         return self.client
 
+    def generate_aliases_and_description(
+        self,
+        column_name: str,
+        data_type: str,
+        sample_values: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        min_value: Optional[Any] = None,
+        max_value: Optional[Any] = None,
+        cardinality: Optional[int] = None,
+        table_context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate BOTH aliases AND description in a single GPT-5 call (FASTER!)
+
+        Args:
+            column_name: Name of the column
+            data_type: Data type
+            sample_values: Sample values
+            tags: Semantic tags
+            min_value: Minimum value
+            max_value: Maximum value
+            cardinality: Number of distinct values
+            table_context: Table description
+
+        Returns:
+            Dict with 'aliases' (List[str]) and 'description' (str)
+        """
+        try:
+            client = self._get_client()
+
+            # Build combined prompt
+            prompt = self._build_combined_prompt(
+                column_name, data_type, sample_values, tags,
+                min_value, max_value, cardinality, table_context
+            )
+
+            # Single GPT-5 call for both
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a data catalog expert specializing in metadata generation for database columns.
+
+Your expertise includes:
+- Geographic data (latitude, longitude, coordinates, administrative regions)
+- POI (Point of Interest) data (locations, businesses, landmarks)
+- HERE Maps datasets (navigation, routing, mapping data)
+- Location-based services and spatial data
+
+You generate both aliases and descriptions that are clear, business-friendly, and valuable to users."""
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=1.0,
+                max_completion_tokens=250
+            )
+
+            # Parse response
+            result = response.choices[0].message.content.strip()
+
+            # Split by "DESCRIPTION:"
+            parts = result.split("DESCRIPTION:")
+
+            # Parse aliases (before DESCRIPTION:)
+            aliases_text = parts[0].replace("ALIASES:", "").strip()
+            aliases = [alias.strip() for alias in aliases_text.split(',')]
+            aliases = [a for a in aliases if a and len(a) > 2][:5]
+
+            # Parse description (after DESCRIPTION:)
+            description = parts[1].strip() if len(parts) > 1 else ""
+            if description and not description.endswith('.'):
+                description += '.'
+
+            logger.debug(f"Generated {len(aliases)} aliases and description for: {column_name}")
+            return {
+                "aliases": aliases,
+                "description": description
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to generate metadata with GPT-5: {e}")
+            return {"aliases": [], "description": ""}
+
     def generate_aliases(
         self,
         column_name: str,
@@ -44,6 +131,7 @@ class AzureOpenAIGenerator:
     ) -> List[str]:
         """
         Generate alias suggestions for a column using GPT-5
+        NOTE: Consider using generate_aliases_and_description() for better performance
 
         Args:
             column_name: Name of the column
@@ -168,6 +256,69 @@ Write concise descriptions that explain what the column means in plain English, 
         except Exception as e:
             logger.error(f"Failed to generate description with GPT-5: {e}")
             return ""
+
+    def _build_combined_prompt(
+        self,
+        column_name: str,
+        data_type: str,
+        sample_values: Optional[List[str]],
+        tags: Optional[List[str]],
+        min_value: Optional[Any],
+        max_value: Optional[Any],
+        cardinality: Optional[int],
+        table_context: Optional[str]
+    ) -> str:
+        """Build prompt for generating BOTH aliases AND description"""
+        prompt = f"""Generate metadata for this database column. Provide BOTH aliases and a description.
+
+Column: {column_name}
+Data Type: {data_type}
+"""
+
+        if table_context:
+            prompt += f"Table Purpose: {table_context}\n"
+
+        if sample_values and len(sample_values) > 0:
+            samples_str = ", ".join([str(v) for v in sample_values[:5]])
+            prompt += f"Sample Values: {samples_str}\n"
+
+        if min_value is not None and max_value is not None:
+            prompt += f"Range: {min_value} to {max_value}\n"
+
+        if cardinality is not None:
+            prompt += f"Distinct Values: {cardinality:,}\n"
+
+        if tags and len(tags) > 0:
+            prompt += f"Semantic Tags: {', '.join(tags)}\n"
+
+        prompt += """
+TASK 1 - Generate Aliases:
+- Provide 3-5 clear, business-friendly aliases
+- Make them more readable than the technical column name
+- Use proper capitalization and spaces
+- Keep each alias concise (2-4 words)
+
+TASK 2 - Generate Description:
+- Write 1-2 clear sentences (max 50 words)
+- Explain what this column represents in business terms
+- Use language understandable to non-technical users
+- Focus on what the data means and how it's used
+- Do NOT just say "value stored as [type]"
+
+FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+
+ALIASES: [alias 1], [alias 2], [alias 3], [alias 4], [alias 5]
+
+DESCRIPTION: [Your 1-2 sentence description here.]
+
+Example for "admin_level_2":
+ALIASES: State or Province, Subnational Area, First Level Division, Primary Administrative Region, Administrative Level 2
+
+DESCRIPTION: State, province, or comparable administrative region where the point of interest is located, useful for regional reporting, search, and aggregation.
+
+Now generate metadata for "{column_name}":"""
+
+        return prompt
 
     def _build_alias_prompt(
         self,

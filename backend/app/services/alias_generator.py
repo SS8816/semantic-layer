@@ -99,6 +99,61 @@ class AliasGenerator:
             logger.error(f"Failed to load HuggingFace models: {e}")
             logger.warning("Falling back to rule-based alias generation only")
     
+    def generate_aliases_and_description(
+        self,
+        column_name: str,
+        data_type: str,
+        sample_values: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        min_value: Optional[Any] = None,
+        max_value: Optional[Any] = None,
+        cardinality: Optional[int] = None,
+        table_context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate BOTH aliases AND description in a SINGLE call (2x faster!)
+
+        Uses Azure OpenAI GPT-5 to generate both in one API call,
+        reducing latency and cost by ~50%.
+
+        Args:
+            column_name: Name of the column
+            data_type: Data type of the column
+            sample_values: Sample values from the column
+            tags: List of tags (e.g., ['country', 'geographic'])
+            min_value: Minimum value (for numeric columns)
+            max_value: Maximum value (for numeric columns)
+            cardinality: Number of distinct values
+            table_context: Brief description of what the table contains
+
+        Returns:
+            Dict with 'aliases' (List[str]) and 'description' (str)
+        """
+        # Try Azure OpenAI GPT-5 combined generation (FASTEST!)
+        if self._azure_available and self.azure_generator:
+            try:
+                result = self.azure_generator.generate_aliases_and_description(
+                    column_name, data_type, sample_values, tags,
+                    min_value, max_value, cardinality, table_context
+                )
+                if result.get("aliases") and result.get("description"):
+                    logger.info(f"Generated metadata for {column_name} using Azure OpenAI GPT-5 (combined)")
+                    return result
+            except Exception as e:
+                logger.warning(f"Azure OpenAI combined generation failed: {e}, falling back to separate calls")
+
+        # Fallback to separate calls if combined fails
+        aliases = self.generate_aliases(column_name, data_type, sample_values, tags, table_context)
+        description = self.generate_description(
+            column_name, data_type, sample_values, tags,
+            min_value, max_value, cardinality, table_context
+        )
+
+        return {
+            "aliases": aliases,
+            "description": description
+        }
+
     def generate_aliases(
         self,
         column_name: str,
@@ -111,6 +166,8 @@ class AliasGenerator:
         Generate multiple alias suggestions for a column
 
         Uses Azure OpenAI GPT-5 (primary) with HuggingFace fallback
+
+        NOTE: For better performance, use generate_aliases_and_description()
 
         Args:
             column_name: Name of the column
@@ -154,7 +211,7 @@ class AliasGenerator:
                     return ai_aliases[:5]  # Return top 5
             except Exception as e:
                 logger.warning(f"AI alias generation failed for {column_name}: {e}")
-        
+
         # Fallback to rule-based
         return self._generate_aliases_rule_based(column_name, data_type, tags)
     

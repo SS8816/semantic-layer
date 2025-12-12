@@ -177,17 +177,8 @@ class MetadataGenerator:
                     f"contains {row_count:,} rows of {table_name.replace('_', ' ')}"
                 )
 
-                # Generate aliases
-                aliases = self.alias_gen.generate_aliases(
-                    column_name=column_name,
-                    data_type=data_type,
-                    sample_values=sample_values[:10] if sample_values else None,
-                    tags=[semantic_type] if semantic_type else [],
-                    table_context=table_context,
-                )
-
-                # Generate description
-                description = self.alias_gen.generate_description(
+                # Generate BOTH aliases AND description in ONE call (2x faster!)
+                metadata = self.alias_gen.generate_aliases_and_description(
                     column_name=column_name,
                     data_type=data_type,
                     sample_values=sample_values[:10] if sample_values else None,
@@ -197,6 +188,10 @@ class MetadataGenerator:
                     cardinality=cardinality,
                     table_context=table_context,
                 )
+
+                # Extract aliases and description from result
+                aliases = metadata.get("aliases", [])
+                description = metadata.get("description", "")
 
                 # Create ColumnMetadata object
                 column_metadata = ColumnMetadata(
