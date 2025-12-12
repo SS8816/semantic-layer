@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Database, AlertCircle, CheckCircle2, Loader2, FileText, Link as LinkIcon } from 'lucide-react';
+import { Search, Database, AlertCircle, CheckCircle2, Loader2, FileText, Link as LinkIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Badge, Spinner, EmptyState, Button } from './ui';
 import api from '../services/api';
 
@@ -14,6 +14,10 @@ const SemanticSearchPage = () => {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState(null);
   const [searchError, setSearchError] = useState(null);
+
+  // Collapsible sections state
+  const [relationshipsCollapsed, setRelationshipsCollapsed] = useState(false);
+  const [metadataCollapsed, setMetadataCollapsed] = useState(false);
 
   useEffect(() => {
     fetchImportedTables();
@@ -244,48 +248,71 @@ const SemanticSearchPage = () => {
         <div className="space-y-6">
           {/* Relationships Section */}
           <Card>
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <LinkIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Relationships ({searchResults.relationships.length})
-                </h2>
+            <div
+              className="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              onClick={() => setRelationshipsCollapsed(!relationshipsCollapsed)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LinkIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Relationships ({searchResults.relationships.length})
+                  </h2>
+                </div>
+                {relationshipsCollapsed ? (
+                  <ChevronDown className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <ChevronUp className="h-5 w-5 text-gray-500" />
+                )}
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Detected relationships between matched tables
               </p>
             </div>
 
-            <div className="p-4">
-              {searchResults.relationships.length === 0 ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-4">
-                  No relationships found between matched tables
-                </p>
-              ) : (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto">
-                  <pre className="text-xs text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">
-                    {JSON.stringify(searchResults.relationships, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
+            {!relationshipsCollapsed && (
+              <div className="p-4">
+                {searchResults.relationships.length === 0 ? (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-4">
+                    No relationships found between matched tables
+                  </p>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto">
+                    <pre className="text-xs text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">
+                      {JSON.stringify(searchResults.relationships, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
 
           {/* Metadata Section */}
           <Card>
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Metadata
-                </h2>
+            <div
+              className="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              onClick={() => setMetadataCollapsed(!metadataCollapsed)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Metadata
+                  </h2>
+                </div>
+                {metadataCollapsed ? (
+                  <ChevronDown className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <ChevronUp className="h-5 w-5 text-gray-500" />
+                )}
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Tables: {searchResults.metadata.tables.length} | Columns: {searchResults.metadata.columns.length}
               </p>
             </div>
 
-            <div className="p-4 space-y-6">
+            {!metadataCollapsed && (
+              <div className="p-4 space-y-6">
               {/* Tables */}
               {searchResults.metadata.tables.length > 0 && (
                 <div>
@@ -399,7 +426,8 @@ const SemanticSearchPage = () => {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
           </Card>
         </div>
       )}
