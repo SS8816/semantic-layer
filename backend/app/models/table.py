@@ -99,6 +99,9 @@ class TableSummary(BaseModel):
     enrichment_status: EnrichmentStatus = EnrichmentStatus.NOT_STARTED
     relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
     neptune_import_status: NeptuneImportStatus = NeptuneImportStatus.NOT_IMPORTED
+    neptune_last_imported: Optional[datetime] = None
+    relationships_status: Optional[RelationshipDetectionStatus] = None
+    relationships_count: int = 0
     
     class Config:
         json_schema_extra = {

@@ -324,6 +324,9 @@ class DynamoDBService:
                         neptune_import_status=NeptuneImportStatus(
                             item.get("neptune_import_status", "not_imported")
                         ),
+                        neptune_last_imported=datetime.fromisoformat(item["neptune_last_imported"]) if item.get("neptune_last_imported") else None,
+                        relationships_status=RelationshipDetectionStatus(item["relationships_status"]) if item.get("relationships_status") else None,
+                        relationships_count=item.get("relationships_count", 0),
                     )
                 )
 
