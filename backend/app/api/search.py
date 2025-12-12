@@ -207,7 +207,17 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                     ))
 
         # Step 7: Fetch relationships between matched tables (only A↔B, not A↔C)
+        # Include tables that matched directly AND tables that have matched columns
         matched_table_names = [t for t, _ in matched_tables]
+
+        # Extract table names from matched columns
+        for column_full_name, _ in matched_columns:
+            parts = column_full_name.rsplit('.', 1)
+            if len(parts) == 2:
+                table_name = parts[0]
+                if table_name not in matched_table_names:
+                    matched_table_names.append(table_name)
+
         relationships_list = []
 
         if len(matched_table_names) >= 2:
