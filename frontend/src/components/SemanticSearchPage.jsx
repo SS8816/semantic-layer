@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Database, AlertCircle, CheckCircle2, Loader2, FileText, Link as LinkIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Database, AlertCircle, CheckCircle2, Loader2, FileText, Link as LinkIcon, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { Card, Badge, Spinner, EmptyState, Button } from './ui';
 import api from '../services/api';
 
@@ -18,6 +18,10 @@ const SemanticSearchPage = () => {
   // Collapsible sections state
   const [relationshipsCollapsed, setRelationshipsCollapsed] = useState(false);
   const [metadataCollapsed, setMetadataCollapsed] = useState(false);
+  const [jsonBlobCollapsed, setJsonBlobCollapsed] = useState(true);
+
+  // Copy state
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchImportedTables();
@@ -66,6 +70,18 @@ const SemanticSearchPage = () => {
       setSearchError(err.response?.data?.detail || 'Search failed. Please try again.');
     } finally {
       setSearching(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (searchResults) {
+      const jsonBlob = {
+        relationships: searchResults.relationships,
+        metadata: searchResults.metadata
+      };
+      navigator.clipboard.writeText(JSON.stringify(jsonBlob, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -277,10 +293,42 @@ const SemanticSearchPage = () => {
                     No relationships found between matched tables
                   </p>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto">
-                    <pre className="text-xs text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">
-                      {JSON.stringify(searchResults.relationships, null, 2)}
-                    </pre>
+                  <div className="space-y-3">
+                    {searchResults.relationships.map((rel, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                              <span className="truncate">{rel.source_table.split('.').pop()}.{rel.source_column}</span>
+                              <span className="text-gray-400">→</span>
+                              <span className="truncate">{rel.target_table.split('.').pop()}.{rel.target_column}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="default" size="sm">
+                                {rel.relationship_type}
+                              </Badge>
+                              {rel.relationship_subtype && (
+                                <Badge variant="info" size="sm">
+                                  {rel.relationship_subtype}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {(rel.confidence * 100).toFixed(0)}% confidence
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                          {rel.reasoning}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                          Detected by: {rel.detected_by}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -426,6 +474,71 @@ const SemanticSearchPage = () => {
                   </div>
                 </div>
               )}
+              </div>
+            )}
+          </Card>
+
+          {/* JSON Response Section */}
+          <Card>
+            <div
+              className="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              onClick={() => setJsonBlobCollapsed(!jsonBlobCollapsed)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    JSON Response
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyToClipboard();
+                    }}
+                    className="text-xs"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-3 w-3 mr-1" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                  {jsonBlobCollapsed ? (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  )}
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Complete search response (relationships and metadata)
+              </p>
+            </div>
+
+            {!jsonBlobCollapsed && (
+              <div className="p-4">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto">
+                  <pre className="text-xs text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">
+                    {JSON.stringify(
+                      {
+                        relationships: searchResults.relationships,
+                        metadata: searchResults.metadata
+                      },
+                      null,
+                      2
+                    )}
+                  </pre>
+                </div>
               </div>
             )}
           </Card>
