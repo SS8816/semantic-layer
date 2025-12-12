@@ -107,6 +107,14 @@ class ColumnTypeDetector:
     FOREIGN_KEY_PATTERNS = ["pvid", "fk", "ref_id", "parent_id"]
     IDENTIFIER_PATTERNS = ["id", "key", "code"]
 
+    # Categorical dimension patterns (always dimensions regardless of cardinality)
+    CATEGORICAL_PATTERNS = [
+        "type", "category", "class", "kind", "status", "level",
+        "admin", "country", "state", "province", "city", "region",
+        "zone", "area", "district", "locality", "feature", "chain",
+        "brand", "tier", "rank", "grade", "rating"
+    ]
+
     # Measurement keywords (strongly indicate numeric measure, not ID)
     MEASURE_KEYWORDS = [
         "kms",
@@ -143,10 +151,18 @@ class ColumnTypeDetector:
     TIMESTAMP_TYPES = ["timestamp", "date", "datetime", "time"]
 
     def detect_column_type(
-        self, column_name: str, data_type: str, cardinality: int, row_count: int = 0
+        self, column_name: str, data_type: str, cardinality: int, row_count: int = 0,
+        semantic_type: str = None
     ) -> str:
         """
         Detect column type
+
+        Args:
+            column_name: Name of the column
+            data_type: Data type
+            cardinality: Number of distinct values
+            row_count: Total number of rows
+            semantic_type: Optional semantic type from geographic detector
 
         Returns: 'dimension', 'measure', 'identifier', 'timestamp', or 'detail'
         """
@@ -161,20 +177,29 @@ class ColumnTypeDetector:
         if self._is_primary_identifier(col_lower, cardinality, row_count):
             return "identifier"
 
-        # 3. DIMENSION (Foreign Keys or low cardinality)
+        # 3. DIMENSION (Semantic-aware detection)
+        # Geographic/administrative columns are always dimensions
+        if semantic_type in ["country", "state", "city", "locality"]:
+            return "dimension"
+
+        # 4. DIMENSION (Categorical patterns - type, category, feature, etc.)
+        if self._is_categorical_dimension(col_lower):
+            return "dimension"
+
+        # 5. DIMENSION (Foreign Keys or low cardinality)
         # Foreign keys with ID patterns but low uniqueness are dimensions
         if self._is_foreign_key_dimension(col_lower, cardinality, row_count):
             return "dimension"
 
-        # 4. MEASURE (numeric, high cardinality, NOT an ID)
+        # 6. MEASURE (numeric, high cardinality, NOT an ID)
         if self._is_measure(col_lower, type_lower, cardinality):
             return "measure"
 
-        # 5. DIMENSION (low cardinality, categorical)
+        # 7. DIMENSION (low cardinality, categorical)
         if cardinality <= self.DIMENSION_THRESHOLD:
             return "dimension"
 
-        # 6. DETAIL (high cardinality text)
+        # 8. DETAIL (high cardinality text)
         if self._is_detail(type_lower, cardinality):
             return "detail"
 
@@ -182,6 +207,13 @@ class ColumnTypeDetector:
         if self._is_numeric_type(type_lower):
             return "measure"
         return "dimension"
+
+    def _is_categorical_dimension(self, col_name: str) -> bool:
+        """
+        Check if column name indicates a categorical dimension
+        (type, category, feature, status, etc.)
+        """
+        return any(pattern in col_name for pattern in self.CATEGORICAL_PATTERNS)
 
     def _is_primary_identifier(
         self, col_name: str, cardinality: int, row_count: int
@@ -246,10 +278,22 @@ class ColumnTypeDetector:
         return cardinality > self.DIMENSION_THRESHOLD
 
     def _is_detail(self, data_type: str, cardinality: int) -> bool:
-        """Check if column is detail (high cardinality text)"""
+        """
+        Check if column is detail (high cardinality text)
+
+        Detail columns are truly unique text fields like:
+        - Descriptions, comments, notes
+        - Full addresses, full names
+        - Long-form text content
+
+        Not administrative/categorical fields with high cardinality.
+        """
         if self._is_numeric_type(data_type):
             return False
-        return cardinality > 100
+
+        # Increased threshold: only very high cardinality text is detail
+        # This prevents admin_level columns (3k-100k cardinality) from being marked as detail
+        return cardinality > 10000
 
     def _is_numeric_type(self, data_type: str) -> bool:
         """Check if numeric"""

@@ -152,15 +152,7 @@ class MetadataGenerator:
                 else:
                     sample_values = []
 
-                # DETECT COLUMN TYPE (dimension/measure/identifier/timestamp/detail)
-                column_type = self.col_type_detector.detect_column_type(
-                    column_name=column_name,
-                    data_type=data_type,
-                    cardinality=cardinality,
-                    row_count=row_count,
-                )
-
-                # DETECT SEMANTIC TYPE (country/state/city/latitude/longitude or None)
+                # DETECT SEMANTIC TYPE FIRST (country/state/city/locality/latitude/longitude or None)
                 semantic_type = self.geo_detector.detect_semantic_type(
                     column_name=column_name,
                     data_type=data_type,
@@ -168,6 +160,16 @@ class MetadataGenerator:
                     min_value=col_stats.get("min_value"),
                     max_value=col_stats.get("max_value"),
                     cardinality=cardinality,
+                )
+
+                # DETECT COLUMN TYPE (dimension/measure/identifier/timestamp/detail)
+                # Pass semantic_type for smarter dimension detection
+                column_type = self.col_type_detector.detect_column_type(
+                    column_name=column_name,
+                    data_type=data_type,
+                    cardinality=cardinality,
+                    row_count=row_count,
+                    semantic_type=semantic_type,
                 )
 
                 # Generate table context
