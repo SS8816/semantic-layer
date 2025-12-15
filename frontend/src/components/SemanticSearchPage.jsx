@@ -217,7 +217,7 @@ const SemanticSearchPage = () => {
                 </label>
                 <input
                   type="range"
-                  min="0.3"
+                  min="0.0"
                   max="0.95"
                   step="0.05"
                   value={threshold}
@@ -226,7 +226,7 @@ const SemanticSearchPage = () => {
                   disabled={searching}
                 />
                 <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  <span>More results (0.3)</span>
+                  <span>More results (0.0)</span>
                   <span>Exact match (0.95)</span>
                 </div>
               </div>
