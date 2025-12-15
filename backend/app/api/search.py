@@ -19,13 +19,13 @@ router = APIRouter(prefix="/api", tags=["search"])
 class SemanticSearchRequest(BaseModel):
     """Request model for semantic search"""
     query: str = Field(..., description="Natural language query", min_length=1)
-    threshold: float = Field(default=0.6, ge=0.0, le=1.0, description="Similarity threshold (0-1)")
+    threshold: float = Field(default=0.45, ge=0.0, le=1.0, description="Similarity threshold (0-1)")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "query": "geographic data",
-                "threshold": 0.6
+                "threshold": 0.45
             }
         }
 
@@ -86,7 +86,7 @@ class SemanticSearchResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "query": "geographic data",
-                "threshold": 0.6,
+                "threshold": 0.45,
                 "query_too_vague": False,
                 "relationships": [
                     {

@@ -273,9 +273,9 @@ const api = {
   /**
    * Perform semantic search using natural language query
    * @param {string} query - Natural language query
-   * @param {number} threshold - Similarity threshold (0-1), default 0.6
+   * @param {number} threshold - Similarity threshold (0-1), default 0.45
    */
-  semanticSearch: async (query, threshold = 0.6) => {
+  semanticSearch: async (query, threshold = 0.45) => {
     const response = await apiClient.post('/api/search/semantic', {
       query,
       threshold,
