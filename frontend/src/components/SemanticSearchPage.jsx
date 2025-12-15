@@ -10,7 +10,7 @@ const SemanticSearchPage = () => {
 
   // Search state
   const [query, setQuery] = useState('');
-  const [threshold, setThreshold] = useState(0.45);
+  const [threshold, setThreshold] = useState(0.40);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState(null);
   const [searchError, setSearchError] = useState(null);
