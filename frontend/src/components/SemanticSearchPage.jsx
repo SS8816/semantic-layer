@@ -11,6 +11,8 @@ const SemanticSearchPage = () => {
   // Search state
   const [query, setQuery] = useState('');
   const [threshold, setThreshold] = useState(0.40);
+  const [mode, setMode] = useState('datamining'); // 'analytics' or 'datamining'
+  const [includeRelationships, setIncludeRelationships] = useState(true);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState(null);
   const [searchError, setSearchError] = useState(null);
@@ -59,7 +61,7 @@ const SemanticSearchPage = () => {
       setSearchError(null);
       setSearchResults(null);
 
-      const results = await api.semanticSearch(query, threshold);
+      const results = await api.semanticSearch(query, threshold, mode, includeRelationships);
       setSearchResults(results);
 
       if (results.query_too_vague) {
@@ -208,6 +210,56 @@ const SemanticSearchPage = () => {
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400"
                 disabled={searching || importedTables.length === 0}
               />
+            </div>
+
+            {/* Search Mode Toggle */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search Mode
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('analytics')}
+                  disabled={searching}
+                  className={`flex-1 px-4 py-2 rounded-lg border font-medium transition-colors ${
+                    mode === 'analytics'
+                      ? 'bg-primary-500 text-white border-primary-500'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-primary-400'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  Analytics
+                  <span className="block text-xs font-normal opacity-80">Table-level search</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('datamining')}
+                  disabled={searching}
+                  className={`flex-1 px-4 py-2 rounded-lg border font-medium transition-colors ${
+                    mode === 'datamining'
+                      ? 'bg-primary-500 text-white border-primary-500'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-primary-400'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  Data Mining
+                  <span className="block text-xs font-normal opacity-80">Column-level search</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Include Relationships Toggle */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="includeRelationships"
+                checked={includeRelationships}
+                onChange={(e) => setIncludeRelationships(e.target.checked)}
+                disabled={searching}
+                className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+              />
+              <label htmlFor="includeRelationships" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                Include relationships in results
+              </label>
             </div>
 
             <div className="flex items-center gap-4">

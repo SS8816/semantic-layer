@@ -274,11 +274,15 @@ const api = {
    * Perform semantic search using natural language query
    * @param {string} query - Natural language query
    * @param {number} threshold - Similarity threshold (0-1), default 0.40
+   * @param {string} mode - Search mode ('analytics' or 'datamining'), default 'datamining'
+   * @param {boolean} includeRelationships - Include relationships in response, default true
    */
-  semanticSearch: async (query, threshold = 0.40) => {
+  semanticSearch: async (query, threshold = 0.40, mode = 'datamining', includeRelationships = true) => {
     const response = await apiClient.post('/api/search/semantic', {
       query,
       threshold,
+      mode,
+      include_relationships: includeRelationships,
     });
     return response.data;
   },

@@ -138,7 +138,8 @@ Purpose: Database table containing structured data with {table_metadata.column_c
     def generate_column_embedding(
         self,
         table_name: str,
-        column_metadata: Any  # Can be dict or ColumnMetadata
+        column_metadata: Any,  # Can be dict or ColumnMetadata
+        table_context: Optional[str] = None
     ) -> tuple[List[float], str]:
         """
         Generate embedding for a column based on its metadata
@@ -146,6 +147,7 @@ Purpose: Database table containing structured data with {table_metadata.column_c
         Args:
             table_name: Full table identifier
             column_metadata: Column metadata (can be dict or ColumnMetadata object)
+            table_context: Optional table description/summary for additional context
 
         Returns:
             Tuple of (embedding vector, description text that was embedded)
@@ -180,8 +182,12 @@ Purpose: Database table containing structured data with {table_metadata.column_c
             sample_values_list = sample_values[:5] if sample_values else []
             sample_str = ", ".join(str(v) for v in sample_values_list) if sample_values_list else "no samples"
 
-            # Build the description text
-            col_description = f"""
+            # Build the description text (with optional table context)
+            if table_context:
+                # Include table context for better semantic matching
+                col_description = f"""
+Table Context: {table_context}
+
 Column: {col_name} in table {table_name}
 Data type: {data_type}
 Column type: {col_type}
@@ -193,7 +199,22 @@ Null percentage: {null_percentage:.1f}% if null_percentage else 0
 Sample values: {sample_str}
 
 Purpose: A {col_type} column that stores {semantic} data, used for {'identification' if col_type == 'identifier' else 'analysis and filtering'}.
-            """.strip()
+                """.strip()
+            else:
+                # Original format without table context
+                col_description = f"""
+Column: {col_name} in table {table_name}
+Data type: {data_type}
+Column type: {col_type}
+Semantic type: {semantic}
+Description: {description}
+Aliases: {aliases_str}
+Cardinality: {cardinality if cardinality else 'unknown'}
+Null percentage: {null_percentage:.1f}% if null_percentage else 0
+Sample values: {sample_str}
+
+Purpose: A {col_type} column that stores {semantic} data, used for {'identification' if col_type == 'identifier' else 'analysis and filtering'}.
+                """.strip()
 
             # Generate embedding
             embedding = self.generate_embedding(col_description)

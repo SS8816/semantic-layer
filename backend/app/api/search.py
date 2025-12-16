@@ -20,12 +20,16 @@ class SemanticSearchRequest(BaseModel):
     """Request model for semantic search"""
     query: str = Field(..., description="Natural language query", min_length=1)
     threshold: float = Field(default=0.40, ge=0.0, le=1.0, description="Similarity threshold (0-1)")
+    mode: str = Field(default="datamining", description="Search mode: 'analytics' (table-level) or 'datamining' (column-level)")
+    include_relationships: bool = Field(default=True, description="Include relationships in response")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "query": "geographic data",
-                "threshold": 0.40
+                "threshold": 0.40,
+                "mode": "datamining",
+                "include_relationships": True
             }
         }
 
@@ -78,6 +82,7 @@ class SemanticSearchResponse(BaseModel):
     """Response model for semantic search"""
     query: str
     threshold: float
+    mode: str
     query_too_vague: bool
     relationships: List[RelationshipResponse]
     metadata: Dict[str, Any]  # Contains 'tables' and 'columns' lists
@@ -87,6 +92,7 @@ class SemanticSearchResponse(BaseModel):
             "example": {
                 "query": "geographic data",
                 "threshold": 0.40,
+                "mode": "datamining",
                 "query_too_vague": False,
                 "relationships": [
                     {
@@ -135,7 +141,7 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
         SemanticSearchResponse with relationships and metadata
     """
     try:
-        logger.info(f"Semantic search query: '{request.query}' (threshold: {request.threshold})")
+        logger.info(f"Semantic search query: '{request.query}' (mode: {request.mode}, threshold: {request.threshold})")
 
         # Step 1: Generate embedding for the query
         query_embedding = embedding_service.generate_embedding(request.query)
@@ -144,97 +150,201 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
         # Step 2: Pad to 2048 dimensions for Neptune
         query_embedding_padded = pad_embedding_to_2048(query_embedding)
 
-        # Step 3: Search Neptune for similar tables
-        matched_tables = search_tables_by_similarity(query_embedding_padded, request.threshold)
-        logger.info(f"Found {len(matched_tables)} matching tables")
+        # Step 3 & 4: Search based on mode
+        if request.mode == "analytics":
+            # Analytics mode: Table-level matching, return ALL columns
+            logger.info("Analytics mode: Searching for tables...")
 
-        # Step 4: Search Neptune for similar columns
-        matched_columns = search_columns_by_similarity(query_embedding_padded, request.threshold)
-        logger.info(f"Found {len(matched_columns)} matching columns")
+            # Search tables by threshold
+            matched_tables = search_tables_by_similarity(query_embedding_padded, request.threshold)
+            logger.info(f"Found {len(matched_tables)} matching tables")
+
+            # Also search columns to extract additional table names
+            matched_columns_raw = search_columns_by_similarity(query_embedding_padded, request.threshold)
+            logger.info(f"Found {len(matched_columns_raw)} matching columns")
+
+            # Extract table names from matched columns
+            matched_table_names = [t for t, _ in matched_tables]
+            for column_full_name, _ in matched_columns_raw:
+                parts = column_full_name.rsplit('.', 1)
+                if len(parts) == 2:
+                    table_name = parts[0]
+                    if table_name not in matched_table_names:
+                        matched_table_names.append(table_name)
+
+            logger.info(f"Total unique tables after deduplication: {len(matched_table_names)}")
+
+            # In analytics mode, we'll fetch ALL columns for these tables later
+            # Set matched_columns to empty for now (will be populated with all columns)
+            matched_columns = []
+
+        else:
+            # Data Mining mode: Column-level matching (current behavior)
+            logger.info("Data Mining mode: Searching for tables and columns...")
+
+            matched_tables = search_tables_by_similarity(query_embedding_padded, request.threshold)
+            logger.info(f"Found {len(matched_tables)} matching tables")
+
+            matched_columns = search_columns_by_similarity(query_embedding_padded, request.threshold)
+            logger.info(f"Found {len(matched_columns)} matching columns")
 
         # Check if query was too vague (no results)
-        if not matched_tables and not matched_columns:
-            logger.warning(f"No results found for query: '{request.query}'")
-            return SemanticSearchResponse(
-                query=request.query,
-                threshold=request.threshold,
-                query_too_vague=True,
-                relationships=[],
-                metadata={"tables": [], "columns": []}
-            )
+        if request.mode == "analytics":
+            if not matched_table_names:
+                logger.warning(f"No results found for query: '{request.query}'")
+                return SemanticSearchResponse(
+                    query=request.query,
+                    threshold=request.threshold,
+                    mode=request.mode,
+                    query_too_vague=True,
+                    relationships=[],
+                    metadata={"tables": [], "columns": []}
+                )
+        else:
+            if not matched_tables and not matched_columns:
+                logger.warning(f"No results found for query: '{request.query}'")
+                return SemanticSearchResponse(
+                    query=request.query,
+                    threshold=request.threshold,
+                    mode=request.mode,
+                    query_too_vague=True,
+                    relationships=[],
+                    metadata={"tables": [], "columns": []}
+                )
 
         # Step 5: Fetch full metadata from DynamoDB for matched tables
         table_metadata_list = []
-        for table_name, similarity in matched_tables:
-            table_metadata = dynamodb_service.get_table_metadata(table_name)
-            if table_metadata:
-                table_metadata_list.append(TableMetadataResponse(
-                    catalog_schema_table=table_metadata.catalog_schema_table,
-                    row_count=table_metadata.row_count,
-                    column_count=table_metadata.column_count,
-                    schema_status=table_metadata.schema_status.value,
-                    enrichment_status=table_metadata.enrichment_status.value,
-                    relationship_detection_status=table_metadata.relationship_detection_status.value,
-                    neptune_import_status=table_metadata.neptune_import_status.value,
+
+        if request.mode == "analytics":
+            # In analytics mode, fetch metadata for ALL matched tables (including those from column search)
+            # Create a map of table_name -> similarity for tables found via table search
+            table_similarity_map = {t: sim for t, sim in matched_tables}
+
+            for table_name in matched_table_names:
+                table_metadata = dynamodb_service.get_table_metadata(table_name)
+                if table_metadata:
+                    # Use similarity score from table search, or 0.0 if found only via column search
+                    similarity = table_similarity_map.get(table_name, 0.0)
+                    table_metadata_list.append(TableMetadataResponse(
+                        catalog_schema_table=table_metadata.catalog_schema_table,
+                        row_count=table_metadata.row_count,
+                        column_count=table_metadata.column_count,
+                        schema_status=table_metadata.schema_status.value,
+                        enrichment_status=table_metadata.enrichment_status.value,
+                        relationship_detection_status=table_metadata.relationship_detection_status.value,
+                        neptune_import_status=table_metadata.neptune_import_status.value,
+                        similarity_score=similarity
+                    ))
+        else:
+            # In datamining mode, fetch metadata only for tables matched by table search
+            for table_name, similarity in matched_tables:
+                table_metadata = dynamodb_service.get_table_metadata(table_name)
+                if table_metadata:
+                    table_metadata_list.append(TableMetadataResponse(
+                        catalog_schema_table=table_metadata.catalog_schema_table,
+                        row_count=table_metadata.row_count,
+                        column_count=table_metadata.column_count,
+                        schema_status=table_metadata.schema_status.value,
+                        enrichment_status=table_metadata.enrichment_status.value,
+                        relationship_detection_status=table_metadata.relationship_detection_status.value,
+                        neptune_import_status=table_metadata.neptune_import_status.value,
+                        similarity_score=similarity
+                    ))
+
+        # Step 6: Fetch column metadata based on mode
+        column_metadata_list = []
+
+        if request.mode == "analytics":
+            # Analytics mode: Fetch ALL columns for matched tables
+            logger.info(f"Fetching ALL columns for {len(matched_table_names)} matched tables...")
+
+            for table_name in matched_table_names:
+                # Get all columns for this table from DynamoDB
+                table_with_columns = dynamodb_service.get_table_with_columns(table_name)
+                if table_with_columns and table_with_columns.columns:
+                    for col_name, col_dict in table_with_columns.columns.items():
+                        # Skip stats-only columns if they exist
+                        if col_dict.get('column_type') in ['min', 'max', 'avg']:
+                            continue
+
+                        column_metadata_list.append(ColumnMetadataResponse(
+                            catalog_schema_table=table_name,
+                            column_name=col_name,
+                            data_type=col_dict.get('data_type', 'unknown'),
+                            column_type=col_dict.get('column_type', 'unknown'),
+                            semantic_type=col_dict.get('semantic_type'),
+                            description=col_dict.get('description', ''),
+                            aliases=col_dict.get('aliases', []),
+                            cardinality=col_dict.get('cardinality'),
+                            null_percentage=col_dict.get('null_percentage'),
+                            sample_values=col_dict.get('sample_values', []),
+                            min_value=col_dict.get('min_value'),
+                            max_value=col_dict.get('max_value'),
+                            avg_value=col_dict.get('avg_value'),
+                            similarity_score=0.0  # No similarity score in analytics mode
+                        ))
+
+            logger.info(f"Fetched {len(column_metadata_list)} total columns for analytics mode")
+
+        else:
+            # Data Mining mode: Fetch only matched columns (current behavior)
+            # Build list of (table_name, column_name, similarity) tuples
+            column_keys_with_similarity = []
+            for column_full_name, similarity in matched_columns:
+                parts = column_full_name.rsplit('.', 1)
+                if len(parts) == 2:
+                    table_name, column_name = parts
+                    column_keys_with_similarity.append((table_name, column_name, similarity))
+
+            # Batch fetch column metadata
+            column_keys = [(table, col) for table, col, _ in column_keys_with_similarity]
+            columns_batch = dynamodb_service.batch_get_column_metadata(column_keys)
+
+            # Create a lookup map for similarity scores
+            similarity_map = {f"{table}.{col}": sim for table, col, sim in column_keys_with_similarity}
+
+            # Build response objects
+            for column_metadata in columns_batch:
+                full_name = f"{column_metadata.catalog_schema_table}.{column_metadata.column_name}"
+                similarity = similarity_map.get(full_name, 0.0)
+
+                column_metadata_list.append(ColumnMetadataResponse(
+                    catalog_schema_table=column_metadata.catalog_schema_table,
+                    column_name=column_metadata.column_name,
+                    data_type=column_metadata.data_type,
+                    column_type=column_metadata.column_type,
+                    semantic_type=column_metadata.semantic_type,
+                    description=column_metadata.description,
+                    aliases=column_metadata.aliases,
+                    cardinality=column_metadata.cardinality,
+                    null_percentage=column_metadata.null_percentage,
+                    sample_values=column_metadata.sample_values,
+                    # Stats columns from DynamoDB (not in Neptune)
+                    min_value=column_metadata.min_value,
+                    max_value=column_metadata.max_value,
+                    avg_value=column_metadata.avg_value,
                     similarity_score=similarity
                 ))
 
-        # Step 6: Batch fetch full metadata from DynamoDB for matched columns (including stats)
-        column_metadata_list = []
+        # Step 7: Prepare matched_table_names for relationships
+        # (Already set in analytics mode, need to set in datamining mode)
+        if request.mode == "datamining":
+            matched_table_names = [t for t, _ in matched_tables]
 
-        # Build list of (table_name, column_name, similarity) tuples
-        column_keys_with_similarity = []
-        for column_full_name, similarity in matched_columns:
-            parts = column_full_name.rsplit('.', 1)
-            if len(parts) == 2:
-                table_name, column_name = parts
-                column_keys_with_similarity.append((table_name, column_name, similarity))
+            # Extract table names from matched columns
+            for column_full_name, _ in matched_columns:
+                parts = column_full_name.rsplit('.', 1)
+                if len(parts) == 2:
+                    table_name = parts[0]
+                    if table_name not in matched_table_names:
+                        matched_table_names.append(table_name)
 
-        # Batch fetch column metadata
-        column_keys = [(table, col) for table, col, _ in column_keys_with_similarity]
-        columns_batch = dynamodb_service.batch_get_column_metadata(column_keys)
-
-        # Create a lookup map for similarity scores
-        similarity_map = {f"{table}.{col}": sim for table, col, sim in column_keys_with_similarity}
-
-        # Build response objects
-        for column_metadata in columns_batch:
-            full_name = f"{column_metadata.catalog_schema_table}.{column_metadata.column_name}"
-            similarity = similarity_map.get(full_name, 0.0)
-
-            column_metadata_list.append(ColumnMetadataResponse(
-                catalog_schema_table=column_metadata.catalog_schema_table,
-                column_name=column_metadata.column_name,
-                data_type=column_metadata.data_type,
-                column_type=column_metadata.column_type,
-                semantic_type=column_metadata.semantic_type,
-                description=column_metadata.description,
-                aliases=column_metadata.aliases,
-                cardinality=column_metadata.cardinality,
-                null_percentage=column_metadata.null_percentage,
-                sample_values=column_metadata.sample_values,
-                # Stats columns from DynamoDB (not in Neptune)
-                min_value=column_metadata.min_value,
-                max_value=column_metadata.max_value,
-                avg_value=column_metadata.avg_value,
-                similarity_score=similarity
-            ))
-
-        # Step 7: Fetch relationships between matched tables (only A↔B, not A↔C)
-        # Include tables that matched directly AND tables that have matched columns
-        matched_table_names = [t for t, _ in matched_tables]
-
-        # Extract table names from matched columns
-        for column_full_name, _ in matched_columns:
-            parts = column_full_name.rsplit('.', 1)
-            if len(parts) == 2:
-                table_name = parts[0]
-                if table_name not in matched_table_names:
-                    matched_table_names.append(table_name)
-
+        # Step 8: Fetch relationships (if requested)
         relationships_list = []
 
-        if len(matched_table_names) >= 2:
+        if request.include_relationships and len(matched_table_names) >= 2:
+            logger.info(f"Fetching relationships for {len(matched_table_names)} matched tables...")
+
             # Batch fetch all relationships for matched tables
             all_rels_by_table = relationships_service.batch_get_relationships_for_tables(matched_table_names)
 
@@ -255,20 +365,23 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                             detected_by=rel['detected_by']
                         ))
 
-        # Remove duplicate relationships (since we query from both sides)
-        unique_relationships = {}
-        for rel in relationships_list:
-            key = f"{rel.source_table}:{rel.source_column}:{rel.target_table}:{rel.target_column}"
-            if key not in unique_relationships:
-                unique_relationships[key] = rel
+            # Remove duplicate relationships (since we query from both sides)
+            unique_relationships = {}
+            for rel in relationships_list:
+                key = f"{rel.source_table}:{rel.source_column}:{rel.target_table}:{rel.target_column}"
+                if key not in unique_relationships:
+                    unique_relationships[key] = rel
 
-        relationships_list = list(unique_relationships.values())
-        logger.info(f"Found {len(relationships_list)} relationships between matched tables")
+            relationships_list = list(unique_relationships.values())
+            logger.info(f"Found {len(relationships_list)} relationships between matched tables")
+        elif not request.include_relationships:
+            logger.info("Relationships disabled by user request")
 
-        # Step 8: Return response with relationships first, then metadata
+        # Step 9: Return response with relationships first, then metadata
         return SemanticSearchResponse(
             query=request.query,
             threshold=request.threshold,
+            mode=request.mode,
             query_too_vague=False,
             relationships=relationships_list,
             metadata={

@@ -123,7 +123,9 @@ class NeptuneAnalyticsService:
         column_count: int,
         schema_status: str,
         table_embedding: List[float],
-        table_summary: str
+        table_summary: str,
+        search_mode: Optional[str] = None,
+        custom_instructions: Optional[str] = None
     ) -> bool:
         """
         Create or update a table node in Neptune Analytics
@@ -135,6 +137,8 @@ class NeptuneAnalyticsService:
             schema_status: Schema status (CURRENT, SCHEMA_CHANGED)
             table_embedding: Embedding vector for the table description
             table_summary: Human-readable summary of the table
+            search_mode: Optional search mode tag ("analytics", "datamining", or None)
+            custom_instructions: Optional custom instructions for SQL examples and LLM usage
 
         Returns:
             True if successful, False otherwise
@@ -151,7 +155,9 @@ class NeptuneAnalyticsService:
                 t.schema_status = $schema_status,
                 t.table_embedding_json = $table_embedding_json,
                 t.table_summary = $table_summary,
-                t.embedding_dimensions = $embedding_dimensions
+                t.embedding_dimensions = $embedding_dimensions,
+                t.search_mode = $search_mode,
+                t.custom_instructions = $custom_instructions
             RETURN t
             """
 
@@ -162,7 +168,9 @@ class NeptuneAnalyticsService:
                 'schema_status': schema_status,
                 'table_embedding_json': embedding_json,  # Store as JSON string
                 'table_summary': table_summary,
-                'embedding_dimensions': len(table_embedding)
+                'embedding_dimensions': len(table_embedding),
+                'search_mode': search_mode,
+                'custom_instructions': custom_instructions
             }
 
             self.execute_query(query, parameters)
@@ -555,7 +563,9 @@ class NeptuneAnalyticsService:
                 column_count=table_metadata.column_count,
                 schema_status=table_metadata.schema_status.value,
                 table_embedding=table_embedding_padded,  # Use padded embedding
-                table_summary=table_summary
+                table_summary=table_summary,
+                search_mode=table_metadata.search_mode,
+                custom_instructions=table_metadata.custom_instructions
             )
 
             if not success:
@@ -571,9 +581,9 @@ class NeptuneAnalyticsService:
                 col_name = col_dict['column_name']
 
                 try:
-                    # Generate column embedding
+                    # Generate column embedding with table context
                     column_embedding, col_description = embedding_service.generate_column_embedding(
-                        catalog_schema_table, col_dict
+                        catalog_schema_table, col_dict, table_context=table_summary
                     )
 
                     # Pad to 2048

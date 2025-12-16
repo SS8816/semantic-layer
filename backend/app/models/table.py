@@ -73,6 +73,10 @@ class TableMetadata(BaseModel):
     enrichment_error: Optional[str] = None
     relationship_error: Optional[str] = None
     neptune_import_error: Optional[str] = None
+
+    # Search configuration
+    search_mode: Optional[str] = None  # "analytics", "datamining", or None (user-defined tag)
+    custom_instructions: Optional[str] = None  # SQL examples and LLM usage hints
     
     class Config:
         json_schema_extra = {
@@ -102,6 +106,8 @@ class TableSummary(BaseModel):
     neptune_last_imported: Optional[datetime] = None
     relationships_status: Optional[RelationshipDetectionStatus] = None
     relationships_count: int = 0
+    search_mode: Optional[str] = None
+    custom_instructions: Optional[str] = None
     
     class Config:
         json_schema_extra = {
@@ -127,6 +133,8 @@ class TableWithColumns(BaseModel):
     enrichment_status: EnrichmentStatus = EnrichmentStatus.NOT_STARTED
     relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
     neptune_import_status: NeptuneImportStatus = NeptuneImportStatus.NOT_IMPORTED
+    search_mode: Optional[str] = None
+    custom_instructions: Optional[str] = None
     columns: Dict[str, dict]  # column_name -> column metadata dict
     
     class Config:
