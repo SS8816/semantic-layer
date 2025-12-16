@@ -979,6 +979,53 @@ class DynamoDBService:
             )
             return False
 
+    def update_table_config_fields(
+        self,
+        catalog_schema_table: str,
+        search_mode: Optional[str] = None,
+        custom_instructions: Optional[str] = None,
+    ) -> bool:
+        """
+        Update table configuration fields (search_mode and custom_instructions)
+
+        Args:
+            catalog_schema_table: Full table identifier
+            search_mode: Search mode ('analytics', 'datamining', or None)
+            custom_instructions: Custom SQL examples and LLM usage hints
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            update_parts = []
+            expr_values = {}
+
+            if search_mode is not None:
+                update_parts.append("search_mode = :search_mode")
+                expr_values[":search_mode"] = search_mode if search_mode else None
+
+            if custom_instructions is not None:
+                update_parts.append("custom_instructions = :custom_instructions")
+                expr_values[":custom_instructions"] = custom_instructions if custom_instructions else None
+
+            if not update_parts:
+                return True
+
+            self.table_metadata_table.update_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                UpdateExpression="SET " + ", ".join(update_parts),
+                ExpressionAttributeValues=expr_values,
+            )
+
+            logger.info(f"Updated table config for {catalog_schema_table}")
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to update table config for {catalog_schema_table}: {e}"
+            )
+            return False
+
     def delete_all_columns_for_table(self, catalog_schema_table: str) -> bool:
         """Delete all column metadata for a table"""
         try:

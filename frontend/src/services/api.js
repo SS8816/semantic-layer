@@ -221,6 +221,21 @@ const api = {
     return response.data;
   },
 
+  /**
+   * Update table configuration (search_mode, custom_instructions)
+   * @param {string} catalog - Catalog name
+   * @param {string} schema - Schema name
+   * @param {string} tableName - Table name
+   * @param {object} config - Configuration object with search_mode and/or custom_instructions
+   */
+  updateTableConfig: async (catalog, schema, tableName, config) => {
+    const response = await apiClient.patch(
+      `/api/table/${catalog}/${schema}/${tableName}/config`,
+      config,
+    );
+    return response.data;
+  },
+
   // ========== Relationship Endpoints ==========
 
   /**

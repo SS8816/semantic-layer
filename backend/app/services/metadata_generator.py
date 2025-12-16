@@ -35,6 +35,28 @@ class MetadataGenerator:
         self.col_type_detector = column_type_detector
         self.alias_gen = alias_generator
 
+    def detect_search_mode(self, table_schema: Dict[str, str]) -> str:
+        """
+        Auto-detect search mode based on table schema complexity
+
+        Args:
+            table_schema: Dictionary of column_name -> data_type
+
+        Returns:
+            "datamining" if nested/complex schema (struct, array, map, row)
+            "analytics" if flat schema
+        """
+        for column_name, data_type in table_schema.items():
+            data_type_lower = data_type.lower()
+
+            # Check for nested/complex types
+            if any(nested_type in data_type_lower for nested_type in ['struct', 'array', 'map', 'row']):
+                logger.info(f"Detected nested type '{data_type}' in column '{column_name}' - setting search_mode='datamining'")
+                return "datamining"
+
+        logger.info(f"No nested types detected - setting search_mode='analytics'")
+        return "analytics"
+
     def generate_metadata_for_table(
         self,
         table_name: str,
@@ -216,7 +238,10 @@ class MetadataGenerator:
                 self.dynamodb.save_column_metadata(column_metadata)
                 logger.info(f"Saved column {column_name}")
 
-            # Step 6: Save table-level metadata
+            # Step 6: Auto-detect search mode based on schema
+            detected_search_mode = self.detect_search_mode(table_schema)
+
+            # Step 7: Save table-level metadata
             table_metadata = TableMetadata(
                 catalog_schema_table=catalog_schema_table,  # CHANGED
                 last_updated=datetime.now(),
@@ -227,20 +252,21 @@ class MetadataGenerator:
                 schema_changes=None,
                 enrichment_status=EnrichmentStatus.COMPLETED,
                 enrichment_timestamp=datetime.now(),
+                search_mode=detected_search_mode,  # Auto-detected
             )
 
             self.dynamodb.save_table_metadata(table_metadata)
 
             logger.info(
-                f"✅ Successfully generated metadata for: {catalog_schema_table}"
+                f"✅ Successfully generated metadata for: {catalog_schema_table} (search_mode: {detected_search_mode})"
             )
 
-            # Update status to IN_PROGRESS before starting thread (so frontend sees it immediately)
+            # Step 8: Update status to IN_PROGRESS before starting thread (so frontend sees it immediately)
             self.dynamodb.update_relationship_detection_status(
                 catalog_schema_table, RelationshipDetectionStatus.IN_PROGRESS
             )
 
-            # Start relationship detection in background
+            # Step 9: Start relationship detection in background
             table_identifier = f"{catalog}#{schema}#{table_name}"
             start_relationship_detection_task(
                 table_identifier=table_identifier,

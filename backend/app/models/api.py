@@ -164,7 +164,7 @@ class UpdateColumnMetadataResponse(BaseModel):
     catalog_table: str
     column_name: str
     updated_fields: List[str]
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -172,6 +172,36 @@ class UpdateColumnMetadataResponse(BaseModel):
                 "catalog_table": "explorer_datasets.navigable_road_attributes_2024",
                 "column_name": "road_id",
                 "updated_fields": ["aliases", "description"]
+            }
+        }
+
+
+class UpdateTableConfigRequest(BaseModel):
+    """Request for PATCH /api/table/{catalog}/{schema}/{table_name}/config"""
+    search_mode: Optional[str] = Field(None, description="Search mode: 'analytics', 'datamining', or None")
+    custom_instructions: Optional[str] = Field(None, description="Custom SQL examples and LLM usage hints")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "search_mode": "analytics",
+                "custom_instructions": "Use this table for POI analysis. Always join with location_dim on location_id."
+            }
+        }
+
+
+class UpdateTableConfigResponse(BaseModel):
+    """Response for PATCH /api/table/{catalog}/{schema}/{table_name}/config"""
+    status: str
+    catalog_schema_table: str
+    updated_fields: List[str]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "success",
+                "catalog_schema_table": "here_explorer.explorer_datasets.navigable_road_attributes_2024",
+                "updated_fields": ["search_mode", "custom_instructions"]
             }
         }
 

@@ -72,6 +72,12 @@ const MetadataViewer = ({ tableName }) => {
   // JSON view state
   const [jsonExpanded, setJsonExpanded] = useState(false);
 
+  // Table config state
+  const [searchMode, setSearchMode] = useState('');
+  const [customInstructions, setCustomInstructions] = useState('');
+  const [showCustomInstructions, setShowCustomInstructions] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+
   useEffect(() => {
     if (tableName) {
       fetchMetadata();
@@ -149,6 +155,11 @@ const MetadataViewer = ({ tableName }) => {
       const data = await api.getMetadata(catalog, schema, table);
       setMetadata(data);
 
+      // Initialize table config fields
+      setSearchMode(data.search_mode || '');
+      setCustomInstructions(data.custom_instructions || '');
+      setShowCustomInstructions(false); // Reset collapse state
+
       // Extract relationship detection status
       setRelationshipStatus(data.relationship_detection_status || 'not_started');
     } catch (err) {
@@ -161,6 +172,32 @@ const MetadataViewer = ({ tableName }) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveTableConfig = async () => {
+    try {
+      setSavingConfig(true);
+      setError(null);
+
+      const parts = tableName.split('.');
+      if (parts.length !== 3) {
+        throw new Error('Invalid table name format');
+      }
+
+      const [catalog, schema, table] = parts;
+      await api.updateTableConfig(catalog, schema, table, {
+        search_mode: searchMode || null,
+        custom_instructions: customInstructions || null,
+      });
+
+      // Refresh metadata to show saved values
+      await fetchMetadata();
+    } catch (err) {
+      console.error('Error saving table config:', err);
+      setError('Failed to save table configuration');
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -540,6 +577,64 @@ const MetadataViewer = ({ tableName }) => {
             Regenerate
           </Button>
         </Card.Header>
+
+        {/* Table Configuration Section */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search Mode
+              </label>
+              <select
+                value={searchMode}
+                onChange={(e) => setSearchMode(e.target.value)}
+                className="w-full max-w-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="">Auto-detected</option>
+                <option value="analytics">Analytics (table-level search)</option>
+                <option value="datamining">Data Mining (column-level search)</option>
+              </select>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Custom Instructions
+                </label>
+                <button
+                  onClick={() => setShowCustomInstructions(!showCustomInstructions)}
+                  className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  {showCustomInstructions ? 'Hide' : 'Edit'}
+                </button>
+              </div>
+              {showCustomInstructions && (
+                <textarea
+                  value={customInstructions}
+                  onChange={(e) => setCustomInstructions(e.target.value)}
+                  placeholder="Enter SQL examples, usage hints, or LLM instructions..."
+                  rows={4}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              )}
+              {!showCustomInstructions && customInstructions && (
+                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+                  {customInstructions.substring(0, 100)}{customInstructions.length > 100 ? '...' : ''}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={handleSaveTableConfig}
+                disabled={savingConfig}
+              >
+                {savingConfig ? 'Saving...' : 'Save Configuration'}
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* Metadata Table */}
         <div className="overflow-x-auto">
