@@ -21,9 +21,13 @@ const SemanticSearchPage = () => {
   const [relationshipsCollapsed, setRelationshipsCollapsed] = useState(false);
   const [metadataCollapsed, setMetadataCollapsed] = useState(false);
   const [jsonBlobCollapsed, setJsonBlobCollapsed] = useState(true);
+  const [tablesListCollapsed, setTablesListCollapsed] = useState(false);
 
   // Copy state
   const [copied, setCopied] = useState(false);
+
+  // Table search state
+  const [tableSearch, setTableSearch] = useState('');
 
   useEffect(() => {
     fetchImportedTables();
@@ -96,6 +100,26 @@ const SemanticSearchPage = () => {
     );
   };
 
+  const getSearchModeBadge = (searchMode) => {
+    if (!searchMode) {
+      return <Badge variant="default" size="sm">Auto</Badge>;
+    }
+    if (searchMode === 'analytics') {
+      return <Badge variant="info" size="sm">📊 Analytics</Badge>;
+    }
+    if (searchMode === 'datamining') {
+      return <Badge variant="warning" size="sm">⛏️ Data Mining</Badge>;
+    }
+    return <Badge variant="default" size="sm">{searchMode}</Badge>;
+  };
+
+  // Filter tables based on search
+  const filteredTables = importedTables.filter(table =>
+    table.table_name.toLowerCase().includes(tableSearch.toLowerCase()) ||
+    table.catalog.toLowerCase().includes(tableSearch.toLowerCase()) ||
+    table.schema.toLowerCase().includes(tableSearch.toLowerCase())
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -133,56 +157,92 @@ const SemanticSearchPage = () => {
 
       {/* Searchable Tables Section */}
       <Card>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Searchable Tables ({importedTables.length})
-            </h2>
+        <div
+          className="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          onClick={() => setTablesListCollapsed(!tablesListCollapsed)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Searchable Tables ({importedTables.length})
+              </h2>
+            </div>
+            {tablesListCollapsed ? (
+              <ChevronDown className="h-5 w-5 text-gray-500" />
+            ) : (
+              <ChevronUp className="h-5 w-5 text-gray-500" />
+            )}
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Tables that have been imported to Neptune and are available for semantic search
+            Tables imported to Neptune and available for semantic search
           </p>
         </div>
 
-        <div className="p-4">
-          {importedTables.length === 0 ? (
-            <EmptyState
-              icon={<Database className="h-12 w-12" />}
-              title="No Searchable Tables"
-              description="Generate metadata and wait for tables to be imported to Neptune Analytics"
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {importedTables.map((table, index) => (
-                <div
-                  key={index}
-                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 dark:hover:border-primary-400 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {table.table_name}
-                      </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {table.catalog}.{table.schema}
-                      </p>
+        {!tablesListCollapsed && (
+          <div className="p-4">
+            {/* Search Box (only show when > 5 tables) */}
+            {importedTables.length > 5 && (
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Search tables by name, catalog, or schema..."
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            )}
+
+            {importedTables.length === 0 ? (
+              <EmptyState
+                icon={<Database className="h-12 w-12" />}
+                title="No Searchable Tables"
+                description="Generate metadata and wait for tables to be imported to Neptune Analytics"
+              />
+            ) : filteredTables.length === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-4">
+                No tables match your search
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredTables.map((table, index) => (
+                  <div
+                    key={index}
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 dark:hover:border-primary-400 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {table.table_name}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {table.catalog}.{table.schema}
+                        </p>
+                      </div>
+                      {getStatusBadge(table.neptune_import_status)}
                     </div>
-                    {getStatusBadge(table.neptune_import_status)}
+
+                    {/* Search Mode Badge */}
+                    <div className="flex items-center gap-2 mt-3 mb-2">
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Mode:</span>
+                      {getSearchModeBadge(table.search_mode)}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <div>
+                        <span className="font-medium">Rows:</span> {table.row_count.toLocaleString()}
+                      </div>
+                      <div>
+                        <span className="font-medium">Columns:</span> {table.column_count}
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <div>
-                      <span className="font-medium">Rows:</span> {table.row_count.toLocaleString()}
-                    </div>
-                    <div>
-                      <span className="font-medium">Columns:</span> {table.column_count}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Search Input Section */}
@@ -341,9 +401,26 @@ const SemanticSearchPage = () => {
             {!relationshipsCollapsed && (
               <div className="p-4">
                 {searchResults.relationships.length === 0 ? (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-4">
-                    No relationships found between matched tables
-                  </p>
+                  <div className="text-center py-6">
+                    {!includeRelationships ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertCircle className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Relationships disabled
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          Enable "Include relationships" option above to see connections between tables
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertCircle className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          No relationships found between matched tables
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     {searchResults.relationships.map((rel, index) => (

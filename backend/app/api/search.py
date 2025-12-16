@@ -258,7 +258,11 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
             # Analytics mode: Fetch ALL columns for matched tables
             logger.info(f"Fetching ALL columns for {len(matched_table_names)} matched tables...")
 
+            # Use the table_similarity_map created earlier
             for table_name in matched_table_names:
+                # Get table similarity score (0.0 if only found via column search)
+                table_similarity = table_similarity_map.get(table_name, 0.0)
+
                 # Get all columns for this table from DynamoDB
                 table_with_columns = dynamodb_service.get_table_with_columns(table_name)
                 if table_with_columns and table_with_columns.columns:
@@ -281,7 +285,7 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                             min_value=col_dict.get('min_value'),
                             max_value=col_dict.get('max_value'),
                             avg_value=col_dict.get('avg_value'),
-                            similarity_score=0.0  # No similarity score in analytics mode
+                            similarity_score=table_similarity  # Use table's similarity score
                         ))
 
             logger.info(f"Fetched {len(column_metadata_list)} total columns for analytics mode")

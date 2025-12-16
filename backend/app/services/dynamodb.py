@@ -1088,6 +1088,8 @@ class DynamoDBService:
                 enrichment_status=table_metadata.enrichment_status,
                 relationship_detection_status=table_metadata.relationship_detection_status,
                 neptune_import_status=table_metadata.neptune_import_status,
+                search_mode=table_metadata.search_mode,
+                custom_instructions=table_metadata.custom_instructions,
                 columns=columns_dict,
             )
 
