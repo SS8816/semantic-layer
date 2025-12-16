@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Download,
   Copy,
+  Settings,
 } from 'lucide-react';
 import api from '../services/api';
 import { Card, Badge, Button, Spinner, EmptyState, Tooltip } from './ui';
@@ -190,6 +191,9 @@ const MetadataViewer = ({ tableName }) => {
         search_mode: searchMode || null,
         custom_instructions: customInstructions || null,
       });
+
+      // Wait 500ms for DynamoDB write to propagate before refetching
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Refresh metadata to show saved values
       await fetchMetadata();
@@ -578,64 +582,6 @@ const MetadataViewer = ({ tableName }) => {
           </Button>
         </Card.Header>
 
-        {/* Table Configuration Section */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Search Mode
-              </label>
-              <select
-                value={searchMode}
-                onChange={(e) => setSearchMode(e.target.value)}
-                className="w-full max-w-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              >
-                <option value="">Auto-detected</option>
-                <option value="analytics">Analytics (table-level search)</option>
-                <option value="datamining">Data Mining (column-level search)</option>
-              </select>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Custom Instructions
-                </label>
-                <button
-                  onClick={() => setShowCustomInstructions(!showCustomInstructions)}
-                  className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
-                >
-                  {showCustomInstructions ? 'Hide' : 'Edit'}
-                </button>
-              </div>
-              {showCustomInstructions && (
-                <textarea
-                  value={customInstructions}
-                  onChange={(e) => setCustomInstructions(e.target.value)}
-                  placeholder="Enter SQL examples, usage hints, or LLM instructions..."
-                  rows={4}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-                />
-              )}
-              {!showCustomInstructions && customInstructions && (
-                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
-                  {customInstructions.substring(0, 100)}{customInstructions.length > 100 ? '...' : ''}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={handleSaveTableConfig}
-                disabled={savingConfig}
-              >
-                {savingConfig ? 'Saving...' : 'Save Configuration'}
-              </Button>
-            </div>
-          </div>
-        </div>
-
         {/* Metadata Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -750,6 +696,88 @@ const MetadataViewer = ({ tableName }) => {
             </div>
           )}
         </Card.Footer>
+      </Card>
+
+      {/* Table Configuration Card */}
+      <Card>
+        <Card.Header>
+          <div className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+            <Card.Title>Table Configuration</Card.Title>
+          </div>
+        </Card.Header>
+        <div className="p-6 space-y-5">
+          {/* Search Mode */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Search Mode
+            </label>
+            <select
+              value={searchMode}
+              onChange={(e) => setSearchMode(e.target.value)}
+              className="w-full max-w-md px-4 py-2.5 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+            >
+              <option value="">🔍 Auto-detected (based on schema)</option>
+              <option value="analytics">📊 Analytics (table-level search)</option>
+              <option value="datamining">⛏️ Data Mining (column-level search)</option>
+            </select>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              Auto-detection: nested types → Data Mining, flat schema → Analytics
+            </p>
+          </div>
+
+          {/* Custom Instructions */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Custom Instructions
+              </label>
+              <button
+                onClick={() => setShowCustomInstructions(!showCustomInstructions)}
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors"
+              >
+                {showCustomInstructions ? '▼ Hide' : '▶ Edit'}
+              </button>
+            </div>
+            {showCustomInstructions && (
+              <textarea
+                value={customInstructions}
+                onChange={(e) => setCustomInstructions(e.target.value)}
+                placeholder="Enter SQL examples, usage hints, or LLM instructions...&#10;&#10;Example:&#10;- Use this table for POI analysis&#10;- Always join with location_dim on location_id&#10;- For aggregations, use admin_level_2 as grouping key"
+                rows={5}
+                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-mono transition-colors"
+              />
+            )}
+            {!showCustomInstructions && customInstructions && (
+              <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                {customInstructions.substring(0, 150)}{customInstructions.length > 150 ? '...' : ''}
+              </div>
+            )}
+            {!showCustomInstructions && !customInstructions && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                No custom instructions set. Click "Edit" to add.
+              </p>
+            )}
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end pt-2 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              onClick={handleSaveTableConfig}
+              disabled={savingConfig}
+              className="px-5"
+            >
+              {savingConfig ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Configuration'
+              )}
+            </Button>
+          </div>
+        </div>
       </Card>
 
       {/* Relationship Detection Status Banner */}

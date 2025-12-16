@@ -22,13 +22,25 @@ const TableConfigModal = ({ isOpen, onClose, table, onSave }) => {
       setSaving(true);
       setError(null);
 
-      // Parse table name to get catalog, schema, table
-      const parts = table.catalog_schema_table.split('.');
-      if (parts.length !== 3) {
-        throw new Error('Invalid table name format');
+      // Handle different table object formats
+      let catalog, schema, tableName;
+
+      if (table.catalog_schema_table) {
+        // From MetadataViewer - has catalog_schema_table field
+        const parts = table.catalog_schema_table.split('.');
+        if (parts.length !== 3) {
+          throw new Error('Invalid table name format');
+        }
+        [catalog, schema, tableName] = parts;
+      } else if (table.catalog && table.schema && table.table_name) {
+        // From EnrichedTablesPage - has separate fields
+        catalog = table.catalog;
+        schema = table.schema;
+        tableName = table.table_name;
+      } else {
+        throw new Error('Invalid table object format');
       }
 
-      const [catalog, schema, tableName] = parts;
       await api.updateTableConfig(catalog, schema, tableName, {
         search_mode: searchMode || null,
         custom_instructions: customInstructions || null,
@@ -65,7 +77,7 @@ const TableConfigModal = ({ isOpen, onClose, table, onSave }) => {
                 Table Configuration
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {table.catalog_schema_table}
+                {table.catalog_schema_table || `${table.catalog}.${table.schema}.${table.table_name}`}
               </p>
             </div>
           </div>
@@ -87,14 +99,14 @@ const TableConfigModal = ({ isOpen, onClose, table, onSave }) => {
             <select
               value={searchMode}
               onChange={(e) => setSearchMode(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2.5 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             >
-              <option value="">Auto-detected</option>
-              <option value="analytics">Analytics (table-level search)</option>
-              <option value="datamining">Data Mining (column-level search)</option>
+              <option value="">🔍 Auto-detected (based on schema)</option>
+              <option value="analytics">📊 Analytics (table-level search)</option>
+              <option value="datamining">⛏️ Data Mining (column-level search)</option>
             </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Auto-detected based on schema complexity: nested types → Data Mining, flat schema → Analytics
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              Auto-detection: nested types → Data Mining, flat schema → Analytics
             </p>
           </div>
 
@@ -108,9 +120,9 @@ const TableConfigModal = ({ isOpen, onClose, table, onSave }) => {
               onChange={(e) => setCustomInstructions(e.target.value)}
               placeholder="Enter SQL examples, usage hints, or LLM instructions...&#10;&#10;Example:&#10;- Use this table for POI analysis&#10;- Always join with location_dim on location_id&#10;- For aggregations, use admin_level_2 as grouping key"
               rows={6}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-mono"
+              className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-mono transition-colors"
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
               Provide guidance for SQL generation and LLM usage
             </p>
           </div>
