@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Edit2, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
+import { Search, Edit2, AlertCircle, CheckCircle2, Filter, Settings } from 'lucide-react';
 import { Card, Badge, Spinner, EmptyState } from './ui';
+import TableConfigModal from './TableConfigModal';
 import api from '../services/api';
 
 const EnrichedTablesPage = ({ onEditMetadata }) => {
@@ -17,6 +18,10 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
   // Unique catalogs and schemas for filters
   const [catalogs, setCatalogs] = useState([]);
   const [schemas, setSchemas] = useState([]);
+
+  // Config modal state
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [tableToConfig, setTableToConfig] = useState(null);
 
   useEffect(() => {
     fetchEnrichedTables();
@@ -112,6 +117,21 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
 
   const handleEdit = (table) => {
     onEditMetadata(table);
+  };
+
+  const handleOpenConfig = (table) => {
+    setTableToConfig(table);
+    setConfigModalOpen(true);
+  };
+
+  const handleCloseConfig = () => {
+    setConfigModalOpen(false);
+    setTableToConfig(null);
+  };
+
+  const handleSaveConfig = async () => {
+    // Refresh tables after saving
+    await fetchEnrichedTables();
   };
 
   if (loading) {
@@ -277,13 +297,23 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
                       {table.column_count}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => handleEdit(table)}
-                        className="inline-flex items-center px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                      >
-                        <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-                        Edit
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(table)}
+                          className="inline-flex items-center px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleOpenConfig(table)}
+                          className="inline-flex items-center px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                          title="Configure search mode and custom instructions"
+                        >
+                          <Settings className="h-3.5 w-3.5 mr-1.5" />
+                          Config
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -292,6 +322,14 @@ const EnrichedTablesPage = ({ onEditMetadata }) => {
           </div>
         </Card>
       )}
+
+      {/* Table Config Modal */}
+      <TableConfigModal
+        isOpen={configModalOpen}
+        onClose={handleCloseConfig}
+        table={tableToConfig}
+        onSave={handleSaveConfig}
+      />
     </div>
   );
 };
