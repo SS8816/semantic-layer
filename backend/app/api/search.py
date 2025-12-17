@@ -176,14 +176,59 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
 
             logger.info(f"Total unique tables after deduplication: {len(matched_table_names)}")
 
-            # Build a map of max column similarity for each table (for tables found via column search)
-            column_table_similarities = {}
+            # Build maps for tables found via column search
+            # For filtering: need column count AND similarities per table
+            column_table_data = {}  # table_name -> [similarity_scores]
             for column_full_name, sim in matched_columns_raw:
                 parts = column_full_name.rsplit('.', 1)
                 if len(parts) == 2:
                     table_name = parts[0]
-                    if table_name not in column_table_similarities or sim > column_table_similarities[table_name]:
-                        column_table_similarities[table_name] = sim
+                    if table_name not in column_table_data:
+                        column_table_data[table_name] = []
+                    column_table_data[table_name].append(sim)
+
+            # Apply stricter criteria for tables found ONLY via column search
+            # (tables found via table search are always included)
+            MIN_MATCHING_COLUMNS = 3
+            MIN_AVG_SIMILARITY = 0.55
+
+            table_similarity_map = {t: sim for t, sim in matched_tables}
+            filtered_table_names = []
+            excluded_tables = []
+
+            for table_name in matched_table_names:
+                # If table was found via table search, always include it
+                if table_name in table_similarity_map:
+                    filtered_table_names.append(table_name)
+                    continue
+
+                # Table found ONLY via column search - apply stricter criteria
+                column_sims = column_table_data.get(table_name, [])
+                column_count = len(column_sims)
+                avg_similarity = sum(column_sims) / len(column_sims) if column_sims else 0.0
+
+                # Criteria: Need 3+ columns OR 2+ columns with 55%+ average
+                if column_count >= MIN_MATCHING_COLUMNS:
+                    filtered_table_names.append(table_name)
+                    logger.info(f"  ✓ Including {table_name}: {column_count} columns matched (avg: {avg_similarity:.1%})")
+                elif column_count >= 2 and avg_similarity >= MIN_AVG_SIMILARITY:
+                    filtered_table_names.append(table_name)
+                    logger.info(f"  ✓ Including {table_name}: {column_count} columns with high avg similarity ({avg_similarity:.1%})")
+                else:
+                    excluded_tables.append((table_name, column_count, avg_similarity))
+                    logger.info(f"  ✗ Excluding {table_name}: Only {column_count} columns, avg {avg_similarity:.1%} (too weak)")
+
+            # Replace matched_table_names with filtered list
+            matched_table_names = filtered_table_names
+
+            if excluded_tables:
+                logger.info(f"Excluded {len(excluded_tables)} weakly-matching tables from column search")
+
+            # Build a map of max column similarity for remaining tables (for scoring)
+            column_table_similarities = {}
+            for table_name in matched_table_names:
+                if table_name in column_table_data:
+                    column_table_similarities[table_name] = max(column_table_data[table_name])
 
             # In analytics mode, we'll fetch ALL columns for these tables later
             # Set matched_columns to empty for now (will be populated with all columns)
@@ -229,8 +274,7 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
 
         if request.mode == "analytics":
             # In analytics mode, fetch metadata for ALL matched tables (including those from column search)
-            # Create a map of table_name -> similarity for tables found via table search
-            table_similarity_map = {t: sim for t, sim in matched_tables}
+            # Note: table_similarity_map already created during filtering (line ~195)
 
             for table_name in matched_table_names:
                 table_metadata = dynamodb_service.get_table_metadata(table_name)
