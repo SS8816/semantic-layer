@@ -53,6 +53,8 @@ async def get_all_enriched_tables() -> Dict[str, Any]:
                     "neptune_last_imported": table.neptune_last_imported.isoformat() if table.neptune_last_imported else None,
                     "relationships_status": table.relationships_status.value if table.relationships_status else None,
                     "relationships_count": table.relationships_count,
+                    "search_mode": table.search_mode,
+                    "custom_instructions": table.custom_instructions,
                 }
             )
 

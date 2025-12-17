@@ -1,11 +1,18 @@
 """
 Alias and description generation service using Azure OpenAI (primary) and HuggingFace models (fallback)
 """
-from transformers import T5Tokenizer, T5ForConditionalGeneration
 from typing import List, Dict, Any, Optional
 import re
 from app.config import settings
 from app.utils.logger import app_logger as logger
+
+# Optional import for HuggingFace transformers (fallback only)
+try:
+    from transformers import T5Tokenizer, T5ForConditionalGeneration
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    TRANSFORMERS_AVAILABLE = False
+    logger.warning("transformers library not available - HuggingFace fallback disabled")
 
 
 class AliasGenerator:
@@ -82,19 +89,23 @@ class AliasGenerator:
         """Load HuggingFace models (lazy loading)"""
         if self._models_loaded:
             return
-        
+
+        if not TRANSFORMERS_AVAILABLE:
+            logger.warning("transformers library not available, skipping HuggingFace model loading")
+            return
+
         try:
             logger.info(f"Loading alias generation model: {settings.alias_model}")
             self.alias_tokenizer = T5Tokenizer.from_pretrained(settings.alias_model)
             self.alias_model = T5ForConditionalGeneration.from_pretrained(settings.alias_model)
-            
+
             logger.info(f"Loading description generation model: {settings.description_model}")
             self.description_tokenizer = T5Tokenizer.from_pretrained(settings.description_model)
             self.description_model = T5ForConditionalGeneration.from_pretrained(settings.description_model)
-            
+
             self._models_loaded = True
             logger.info("HuggingFace models loaded successfully")
-        
+
         except Exception as e:
             logger.error(f"Failed to load HuggingFace models: {e}")
             logger.warning("Falling back to rule-based alias generation only")
