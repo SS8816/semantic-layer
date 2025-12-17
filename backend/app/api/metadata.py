@@ -15,7 +15,7 @@ from app.services import dynamodb_service, metadata_generator
 from app.utils.logger import app_logger as logger
 from fastapi.responses import JSONResponse
 from app.utils.logger import app_logger as logger
-from app.services import dynamodb_service, metadata_generator
+from app.services import dynamodb_service, metadata_generator, neptune_service
 router = APIRouter(prefix="/api", tags=["metadata"])
 
 
@@ -359,6 +359,29 @@ async def update_table_config(
                 updated_fields.append("custom_instructions")
 
             logger.info(f"Successfully updated {', '.join(updated_fields)} for {catalog_schema_table}")
+
+            # Also update Neptune if table is imported
+            if table_metadata.neptune_import_status.value == 'imported':
+                try:
+                    # Update search_mode and custom_instructions in Neptune
+                    update_query = """
+                    MATCH (t:Table {name: $table_name})
+                    SET t.search_mode = $search_mode,
+                        t.custom_instructions = $custom_instructions
+                    RETURN t
+                    """
+
+                    neptune_service.execute_query(update_query, {
+                        'table_name': catalog_schema_table,
+                        'search_mode': request.search_mode,
+                        'custom_instructions': request.custom_instructions
+                    })
+
+                    logger.info(f"✅ Updated Neptune node for {catalog_schema_table}")
+                except Exception as e:
+                    # Log error but don't fail the request since DynamoDB was updated
+                    logger.error(f"Failed to update Neptune for {catalog_schema_table}: {e}")
+                    logger.warning("DynamoDB was updated but Neptune sync failed - consider re-importing table")
 
             return UpdateTableConfigResponse(
                 status="success",

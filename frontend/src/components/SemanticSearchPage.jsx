@@ -566,9 +566,11 @@ const SemanticSearchPage = () => {
                               {column.catalog_schema_table} • {column.data_type}
                             </p>
                           </div>
-                          <Badge variant="info" size="sm">
-                            {(column.similarity_score * 100).toFixed(1)}%
-                          </Badge>
+                          {column.similarity_score !== null && column.similarity_score !== undefined && (
+                            <Badge variant="info" size="sm">
+                              {(column.similarity_score * 100).toFixed(1)}%
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
                           {column.description}

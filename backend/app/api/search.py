@@ -350,9 +350,9 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                     if table_name not in matched_table_names:
                         matched_table_names.append(table_name)
 
-        # Step 7.5: Top 1 Table Logic (when relationships disabled)
+        # Step 7.5: Top 1 Table Logic (when relationships disabled in Analytics mode ONLY)
         # Apply two-tier sorting: direct table matches first, then by similarity
-        if not request.include_relationships and len(matched_table_names) > 1:
+        if request.mode == "analytics" and not request.include_relationships and len(matched_table_names) > 1:
             logger.info("Relationships disabled - applying Top 1 table logic...")
 
             # Create scoring list: (table_name, is_direct_match, similarity_score)
@@ -493,7 +493,7 @@ def search_tables_by_similarity(
         )
         YIELD distance as similarity
         WHERE similarity > $threshold AND (t.search_mode IS NULL OR t.search_mode = $mode)
-        RETURN t.name as table_name, similarity
+        RETURN t.name as table_name, t.search_mode as search_mode, similarity
         ORDER BY similarity DESC
         """
 
@@ -501,6 +501,13 @@ def search_tables_by_similarity(
             'threshold': threshold,
             'mode': mode
         })
+
+        # Debug logging to verify filtering
+        if result:
+            logger.info(f"🔍 search_tables_by_similarity: mode={mode}, found {len(result)} tables")
+            for row in result[:5]:  # Log first 5 tables
+                stored_mode = row.get('search_mode', 'NULL')
+                logger.info(f"  - {row['table_name']}: search_mode={stored_mode}, similarity={row['similarity']:.3f}")
 
         return [(row['table_name'], row['similarity']) for row in result]
 
