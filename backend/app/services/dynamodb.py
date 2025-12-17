@@ -241,6 +241,8 @@ class DynamoDBService:
                 enrichment_error=item.get("enrichment_error"),
                 relationship_error=item.get("relationship_error"),
                 neptune_import_error=item.get("neptune_import_error"),
+                search_mode=item.get("search_mode"),
+                custom_instructions=item.get("custom_instructions"),
             )
 
             logger.info(f"Retrieved table metadata for {catalog_schema_table}")
