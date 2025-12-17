@@ -44,6 +44,8 @@ class TableMetadataResponse(BaseModel):
     relationship_detection_status: str
     neptune_import_status: str
     similarity_score: float
+    search_mode: Optional[str] = None
+    custom_instructions: Optional[str] = None
 
 
 class ColumnMetadataResponse(BaseModel):
@@ -233,7 +235,9 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                         enrichment_status=table_metadata.enrichment_status.value,
                         relationship_detection_status=table_metadata.relationship_detection_status.value,
                         neptune_import_status=table_metadata.neptune_import_status.value,
-                        similarity_score=similarity
+                        similarity_score=similarity,
+                        search_mode=table_metadata.search_mode,
+                        custom_instructions=table_metadata.custom_instructions
                     ))
         else:
             # In datamining mode, fetch metadata only for tables matched by table search
@@ -248,7 +252,9 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                         enrichment_status=table_metadata.enrichment_status.value,
                         relationship_detection_status=table_metadata.relationship_detection_status.value,
                         neptune_import_status=table_metadata.neptune_import_status.value,
-                        similarity_score=similarity
+                        similarity_score=similarity,
+                        search_mode=table_metadata.search_mode,
+                        custom_instructions=table_metadata.custom_instructions
                     ))
 
         # Step 6: Fetch column metadata based on mode
