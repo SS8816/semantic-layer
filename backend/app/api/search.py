@@ -176,6 +176,15 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
 
             logger.info(f"Total unique tables after deduplication: {len(matched_table_names)}")
 
+            # Build a map of max column similarity for each table (for tables found via column search)
+            column_table_similarities = {}
+            for column_full_name, sim in matched_columns_raw:
+                parts = column_full_name.rsplit('.', 1)
+                if len(parts) == 2:
+                    table_name = parts[0]
+                    if table_name not in column_table_similarities or sim > column_table_similarities[table_name]:
+                        column_table_similarities[table_name] = sim
+
             # In analytics mode, we'll fetch ALL columns for these tables later
             # Set matched_columns to empty for now (will be populated with all columns)
             matched_columns = []
@@ -226,8 +235,15 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
             for table_name in matched_table_names:
                 table_metadata = dynamodb_service.get_table_metadata(table_name)
                 if table_metadata:
-                    # Use similarity score from table search, or 0.0 if found only via column search
-                    similarity = table_similarity_map.get(table_name, 0.0)
+                    # Use similarity from table search, or max column similarity if found via column search
+                    if table_name in table_similarity_map:
+                        similarity = table_similarity_map[table_name]
+                        logger.debug(f"  {table_name}: {similarity:.3f} (via table search)")
+                    else:
+                        # Table found via column search - use max column similarity
+                        similarity = column_table_similarities.get(table_name, 0.0)
+                        logger.info(f"  {table_name}: {similarity:.3f} (via column search - max col similarity)")
+
                     table_metadata_list.append(TableMetadataResponse(
                         catalog_schema_table=table_metadata.catalog_schema_table,
                         row_count=table_metadata.row_count,
@@ -265,11 +281,7 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
             # Analytics mode: Fetch ALL columns for matched tables
             logger.info(f"Fetching ALL columns for {len(matched_table_names)} matched tables...")
 
-            # Use the table_similarity_map created earlier
             for table_name in matched_table_names:
-                # Get table similarity score (0.0 if only found via column search)
-                table_similarity = table_similarity_map.get(table_name, 0.0)
-
                 # Get all columns for this table from DynamoDB
                 table_with_columns = dynamodb_service.get_table_with_columns(table_name)
                 if table_with_columns and table_with_columns.columns:
@@ -361,22 +373,7 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
             # Build a map of direct table matches
             direct_table_matches = {t: sim for t, sim in matched_tables}
 
-            # Build a map of max column similarity for each table
-            column_table_similarities = {}
-            if request.mode == "analytics":
-                for column_full_name, sim in matched_columns_raw:
-                    parts = column_full_name.rsplit('.', 1)
-                    if len(parts) == 2:
-                        table_name = parts[0]
-                        if table_name not in column_table_similarities or sim > column_table_similarities[table_name]:
-                            column_table_similarities[table_name] = sim
-            else:
-                for column_full_name, sim in matched_columns:
-                    parts = column_full_name.rsplit('.', 1)
-                    if len(parts) == 2:
-                        table_name = parts[0]
-                        if table_name not in column_table_similarities or sim > column_table_similarities[table_name]:
-                            column_table_similarities[table_name] = sim
+            # Note: column_table_similarities already calculated earlier in Analytics mode (line ~180)
 
             # Score all matched tables
             for table_name in matched_table_names:
