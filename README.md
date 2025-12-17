@@ -595,5 +595,3 @@ For questions or issues:
 ---
 
 **Built by:** shubham.singh@here.com
-**Project Type:** Intern Project - Analytics Foundation Team
-**Company:** HERE Technologies
