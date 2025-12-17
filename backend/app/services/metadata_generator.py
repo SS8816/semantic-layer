@@ -169,8 +169,21 @@ class MetadataGenerator:
                 cardinality = col_stats.get("cardinality", 0)
 
                 # Get sample values from DataFrame
+                # Prioritize distinct values (up to 10), fallback to random if < 10 distinct
                 if column_name in sample_df.columns:
-                    sample_values = sample_df[column_name].dropna().head(10).tolist()
+                    # Get distinct values first (up to 10)
+                    distinct_values = sample_df[column_name].dropna().unique()[:10].tolist()
+                    sample_values = distinct_values
+
+                    # If fewer than 10 distinct values, add random samples to fill up
+                    if len(sample_values) < 10:
+                        all_values = sample_df[column_name].dropna()
+                        # Get values not already in sample_values
+                        remaining = all_values[~all_values.isin(sample_values)]
+                        if len(remaining) > 0:
+                            needed = 10 - len(sample_values)
+                            random_samples = remaining.sample(n=min(needed, len(remaining)), random_state=42).tolist()
+                            sample_values.extend(random_samples)
                 else:
                     sample_values = []
 

@@ -64,7 +64,7 @@ class ColumnMetadataResponse(BaseModel):
     min_value: Optional[Any] = None
     max_value: Optional[Any] = None
     avg_value: Optional[Any] = None
-    similarity_score: float
+    similarity_score: Optional[float] = None  # None in Analytics mode, float in Data Mining mode
 
 
 class RelationshipResponse(BaseModel):
@@ -157,12 +157,12 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
             # Analytics mode: Table-level matching, return ALL columns
             logger.info("Analytics mode: Searching for tables...")
 
-            # Search tables by threshold
-            matched_tables = search_tables_by_similarity(query_embedding_padded, request.threshold)
+            # Search tables by threshold (filtered by search_mode)
+            matched_tables = search_tables_by_similarity(query_embedding_padded, request.threshold, request.mode)
             logger.info(f"Found {len(matched_tables)} matching tables")
 
-            # Also search columns to extract additional table names
-            matched_columns_raw = search_columns_by_similarity(query_embedding_padded, request.threshold)
+            # Also search columns to extract additional table names (filtered by parent table's search_mode)
+            matched_columns_raw = search_columns_by_similarity(query_embedding_padded, request.threshold, request.mode)
             logger.info(f"Found {len(matched_columns_raw)} matching columns")
 
             # Extract table names from matched columns
@@ -184,10 +184,11 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
             # Data Mining mode: Column-level matching (current behavior)
             logger.info("Data Mining mode: Searching for tables and columns...")
 
-            matched_tables = search_tables_by_similarity(query_embedding_padded, request.threshold)
+            # Search with search_mode filtering
+            matched_tables = search_tables_by_similarity(query_embedding_padded, request.threshold, request.mode)
             logger.info(f"Found {len(matched_tables)} matching tables")
 
-            matched_columns = search_columns_by_similarity(query_embedding_padded, request.threshold)
+            matched_columns = search_columns_by_similarity(query_embedding_padded, request.threshold, request.mode)
             logger.info(f"Found {len(matched_columns)} matching columns")
 
         # Check if query was too vague (no results)
@@ -290,8 +291,8 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                             sample_values=col_dict.get('sample_values', []),
                             min_value=col_dict.get('min_value'),
                             max_value=col_dict.get('max_value'),
-                            avg_value=col_dict.get('avg_value'),
-                            similarity_score=table_similarity  # Use table's similarity score
+                            avg_value=col_dict.get('avg_value')
+                            # similarity_score omitted in Analytics mode - defaults to None
                         ))
 
             logger.info(f"Fetched {len(column_metadata_list)} total columns for analytics mode")
@@ -348,6 +349,59 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
                     table_name = parts[0]
                     if table_name not in matched_table_names:
                         matched_table_names.append(table_name)
+
+        # Step 7.5: Top 1 Table Logic (when relationships disabled)
+        # Apply two-tier sorting: direct table matches first, then by similarity
+        if not request.include_relationships and len(matched_table_names) > 1:
+            logger.info("Relationships disabled - applying Top 1 table logic...")
+
+            # Create scoring list: (table_name, is_direct_match, similarity_score)
+            table_scores = []
+
+            # Build a map of direct table matches
+            direct_table_matches = {t: sim for t, sim in matched_tables}
+
+            # Build a map of max column similarity for each table
+            column_table_similarities = {}
+            if request.mode == "analytics":
+                for column_full_name, sim in matched_columns_raw:
+                    parts = column_full_name.rsplit('.', 1)
+                    if len(parts) == 2:
+                        table_name = parts[0]
+                        if table_name not in column_table_similarities or sim > column_table_similarities[table_name]:
+                            column_table_similarities[table_name] = sim
+            else:
+                for column_full_name, sim in matched_columns:
+                    parts = column_full_name.rsplit('.', 1)
+                    if len(parts) == 2:
+                        table_name = parts[0]
+                        if table_name not in column_table_similarities or sim > column_table_similarities[table_name]:
+                            column_table_similarities[table_name] = sim
+
+            # Score all matched tables
+            for table_name in matched_table_names:
+                if table_name in direct_table_matches:
+                    # Priority 1: Direct table match
+                    table_scores.append((table_name, True, direct_table_matches[table_name]))
+                else:
+                    # Priority 2: Column match only (use max column similarity)
+                    max_col_sim = column_table_similarities.get(table_name, 0.0)
+                    table_scores.append((table_name, False, max_col_sim))
+
+            # Sort: direct matches first (True > False), then by similarity DESC
+            table_scores.sort(key=lambda x: (x[1], x[2]), reverse=True)
+
+            # Take top 1
+            top_table = table_scores[0][0]
+            logger.info(f"Top 1 table selected: {top_table} (is_direct={table_scores[0][1]}, sim={table_scores[0][2]:.3f})")
+
+            # Update matched_table_names to only contain top 1
+            matched_table_names = [top_table]
+
+            # Filter metadata to only include top 1 table
+            table_metadata_list = [t for t in table_metadata_list if t.catalog_schema_table == top_table]
+            column_metadata_list = [c for c in column_metadata_list if c.catalog_schema_table == top_table]
+            logger.info(f"Filtered to {len(column_metadata_list)} columns from top table")
 
         # Step 8: Fetch relationships (if requested)
         relationships_list = []
@@ -409,7 +463,8 @@ async def semantic_search(request: SemanticSearchRequest = Body(...)):
 
 def search_tables_by_similarity(
     query_embedding_padded: List[float],
-    threshold: float
+    threshold: float,
+    mode: str = "datamining"
 ) -> List[tuple[str, float]]:
     """
     Search for similar tables using Neptune vector similarity
@@ -417,6 +472,7 @@ def search_tables_by_similarity(
     Args:
         query_embedding_padded: Padded 2048-dim query embedding
         threshold: Minimum similarity score (0-1)
+        mode: Search mode ('analytics' or 'datamining')
 
     Returns:
         List of (table_name, similarity_score) tuples
@@ -425,7 +481,7 @@ def search_tables_by_similarity(
         # Convert embedding to string for inlining (Neptune doesn't support parameterization in CALL)
         embedding_str = str(query_embedding_padded)
 
-        # Use CosineSimilarity with threshold filtering
+        # Use CosineSimilarity with threshold and search_mode filtering
         query = f"""
         MATCH (t:Table)
         CALL neptune.algo.vectors.distance.byEmbedding(
@@ -436,13 +492,14 @@ def search_tables_by_similarity(
             }}
         )
         YIELD distance as similarity
-        WHERE similarity > $threshold
+        WHERE similarity > $threshold AND (t.search_mode IS NULL OR t.search_mode = $mode)
         RETURN t.name as table_name, similarity
         ORDER BY similarity DESC
         """
 
         result = neptune_service.execute_query(query, {
-            'threshold': threshold
+            'threshold': threshold,
+            'mode': mode
         })
 
         return [(row['table_name'], row['similarity']) for row in result]
@@ -454,14 +511,17 @@ def search_tables_by_similarity(
 
 def search_columns_by_similarity(
     query_embedding_padded: List[float],
-    threshold: float
+    threshold: float,
+    mode: str = "datamining"
 ) -> List[tuple[str, float]]:
     """
     Search for similar columns using Neptune vector similarity
+    Filters columns by parent table's search_mode to prevent "sneaking in" via columns
 
     Args:
         query_embedding_padded: Padded 2048-dim query embedding
         threshold: Minimum similarity score (0-1)
+        mode: Search mode ('analytics' or 'datamining')
 
     Returns:
         List of (column_full_name, similarity_score) tuples
@@ -470,9 +530,9 @@ def search_columns_by_similarity(
         # Convert embedding to string for inlining (Neptune doesn't support parameterization in CALL)
         embedding_str = str(query_embedding_padded)
 
-        # Use CosineSimilarity with threshold filtering
+        # Use CosineSimilarity with threshold and parent table's search_mode filtering
         query = f"""
-        MATCH (c:Column)
+        MATCH (t:Table)-[:HAS_COLUMN]->(c:Column)
         CALL neptune.algo.vectors.distance.byEmbedding(
             c,
             {{
@@ -481,13 +541,14 @@ def search_columns_by_similarity(
             }}
         )
         YIELD distance as similarity
-        WHERE similarity > $threshold
+        WHERE similarity > $threshold AND (t.search_mode IS NULL OR t.search_mode = $mode)
         RETURN c.full_name as column_full_name, similarity
         ORDER BY similarity DESC
         """
 
         result = neptune_service.execute_query(query, {
-            'threshold': threshold
+            'threshold': threshold,
+            'mode': mode
         })
 
         return [(row['column_full_name'], row['similarity']) for row in result]
