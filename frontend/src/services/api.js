@@ -165,6 +165,19 @@ const api = {
   },
 
   /**
+   * Get only the relationship detection status for a table (lightweight)
+   * @param {string} catalog - Catalog name
+   * @param {string} schema - Schema name
+   * @param {string} tableName - Table name
+   */
+  getRelationshipStatus: async (catalog, schema, tableName) => {
+    const response = await apiClient.get(
+      `/api/relationship-status/${catalog}/${schema}/${tableName}`,
+    );
+    return response.data;
+  },
+
+  /**
    * Refresh metadata for a table
    */
   refreshMetadata: async (catalog, schema, tableName) => {
@@ -208,6 +221,36 @@ const api = {
     return response.data;
   },
 
+  /**
+   * Update table configuration (search_mode, custom_instructions)
+   * @param {string} catalog - Catalog name
+   * @param {string} schema - Schema name
+   * @param {string} tableName - Table name
+   * @param {object} config - Configuration object with search_mode and/or custom_instructions
+   */
+  updateTableConfig: async (catalog, schema, tableName, config) => {
+    const response = await apiClient.patch(
+      `/api/table/${catalog}/${schema}/${tableName}/config`,
+      config,
+    );
+    return response.data;
+  },
+
+  // ========== Relationship Endpoints ==========
+
+  /**
+   * Get relationships for a table
+   * @param {string} catalog - Catalog name
+   * @param {string} schema - Schema name
+   * @param {string} tableName - Table name
+   */
+  getRelationships: async (catalog, schema, tableName) => {
+    const response = await apiClient.get(
+      `/api/relationships/${catalog}/${schema}/${tableName}`,
+    );
+    return response.data;
+  },
+
   // ========== Admin Endpoints ==========
 
   /**
@@ -237,6 +280,25 @@ const api = {
    */
   getTaskStatus: async (taskId) => {
     const response = await apiClient.get(`/api/admin/task-status/${taskId}`);
+    return response.data;
+  },
+
+  // ========== Semantic Search Endpoints ==========
+
+  /**
+   * Perform semantic search using natural language query
+   * @param {string} query - Natural language query
+   * @param {number} threshold - Similarity threshold (0-1), default 0.40
+   * @param {string} mode - Search mode ('analytics' or 'datamining'), default 'datamining'
+   * @param {boolean} includeRelationships - Include relationships in response, default true
+   */
+  semanticSearch: async (query, threshold = 0.40, mode = 'datamining', includeRelationships = true) => {
+    const response = await apiClient.post('/api/search/semantic', {
+      query,
+      threshold,
+      mode,
+      include_relationships: includeRelationships,
+    });
     return response.data;
   },
 };

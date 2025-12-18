@@ -8,7 +8,13 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from app.config import settings
-from app.models import ColumnMetadata, RelationshipDetectionStatus, SchemaStatus, TableMetadata
+from app.models import (
+    ColumnMetadata,
+    EnrichmentStatus,
+    RelationshipDetectionStatus,
+    SchemaStatus,
+    TableMetadata,
+)
 from app.services.alias_generator import alias_generator
 from app.services.column_type_detector import column_type_detector
 from app.services.dynamodb import dynamodb_service
@@ -28,6 +34,28 @@ class MetadataGenerator:
         self.geo_detector = geographic_detector
         self.col_type_detector = column_type_detector
         self.alias_gen = alias_generator
+
+    def detect_search_mode(self, table_schema: Dict[str, str]) -> str:
+        """
+        Auto-detect search mode based on table schema complexity
+
+        Args:
+            table_schema: Dictionary of column_name -> data_type
+
+        Returns:
+            "datamining" if nested/complex schema (struct, array, map, row)
+            "analytics" if flat schema
+        """
+        for column_name, data_type in table_schema.items():
+            data_type_lower = data_type.lower()
+
+            # Check for nested/complex types
+            if any(nested_type in data_type_lower for nested_type in ['struct', 'array', 'map', 'row']):
+                logger.info(f"Detected nested type '{data_type}' in column '{column_name}' - setting search_mode='datamining'")
+                return "datamining"
+
+        logger.info(f"No nested types detected - setting search_mode='analytics'")
+        return "analytics"
 
     def generate_metadata_for_table(
         self,
@@ -65,6 +93,25 @@ class MetadataGenerator:
                         f"Metadata already exists for {catalog_schema_table}. Use force_refresh=True to regenerate."
                     )
                     return True
+
+            # Mark enrichment as in progress
+            # Create minimal table metadata first if it doesn't exist
+            existing_metadata = self.dynamodb.get_table_metadata(catalog_schema_table)
+            if existing_metadata:
+                self.dynamodb.update_enrichment_status(
+                    catalog_schema_table, EnrichmentStatus.IN_PROGRESS
+                )
+            else:
+                # Create initial record with IN_PROGRESS status
+                initial_metadata = TableMetadata(
+                    catalog_schema_table=catalog_schema_table,
+                    last_updated=datetime.now(),
+                    row_count=0,
+                    column_count=0,
+                    schema_status=SchemaStatus.CURRENT,
+                    enrichment_status=EnrichmentStatus.IN_PROGRESS,
+                )
+                self.dynamodb.save_table_metadata(initial_metadata)
 
             # Step 1: Get schema from Starburst (always use live schema)
             logger.info(
@@ -122,20 +169,25 @@ class MetadataGenerator:
                 cardinality = col_stats.get("cardinality", 0)
 
                 # Get sample values from DataFrame
+                # Prioritize distinct values (up to 10), fallback to random if < 10 distinct
                 if column_name in sample_df.columns:
-                    sample_values = sample_df[column_name].dropna().head(10).tolist()
+                    # Get distinct values first (up to 10)
+                    distinct_values = sample_df[column_name].dropna().unique()[:10].tolist()
+                    sample_values = distinct_values
+
+                    # If fewer than 10 distinct values, add random samples to fill up
+                    if len(sample_values) < 10:
+                        all_values = sample_df[column_name].dropna()
+                        # Get values not already in sample_values
+                        remaining = all_values[~all_values.isin(sample_values)]
+                        if len(remaining) > 0:
+                            needed = 10 - len(sample_values)
+                            random_samples = remaining.sample(n=min(needed, len(remaining)), random_state=42).tolist()
+                            sample_values.extend(random_samples)
                 else:
                     sample_values = []
 
-                # DETECT COLUMN TYPE (dimension/measure/identifier/timestamp/detail)
-                column_type = self.col_type_detector.detect_column_type(
-                    column_name=column_name,
-                    data_type=data_type,
-                    cardinality=cardinality,
-                    row_count=row_count,
-                )
-
-                # DETECT SEMANTIC TYPE (country/state/city/latitude/longitude or None)
+                # DETECT SEMANTIC TYPE FIRST (country/state/city/locality/latitude/longitude or None)
                 semantic_type = self.geo_detector.detect_semantic_type(
                     column_name=column_name,
                     data_type=data_type,
@@ -145,22 +197,23 @@ class MetadataGenerator:
                     cardinality=cardinality,
                 )
 
+                # DETECT COLUMN TYPE (dimension/measure/identifier/timestamp/detail)
+                # Pass semantic_type for smarter dimension detection
+                column_type = self.col_type_detector.detect_column_type(
+                    column_name=column_name,
+                    data_type=data_type,
+                    cardinality=cardinality,
+                    row_count=row_count,
+                    semantic_type=semantic_type,
+                )
+
                 # Generate table context
                 table_context = (
                     f"contains {row_count:,} rows of {table_name.replace('_', ' ')}"
                 )
 
-                # Generate aliases
-                aliases = self.alias_gen.generate_aliases(
-                    column_name=column_name,
-                    data_type=data_type,
-                    sample_values=sample_values[:10] if sample_values else None,
-                    tags=[semantic_type] if semantic_type else [],
-                    table_context=table_context,
-                )
-
-                # Generate description
-                description = self.alias_gen.generate_description(
+                # Generate BOTH aliases AND description in ONE call (2x faster!)
+                metadata = self.alias_gen.generate_aliases_and_description(
                     column_name=column_name,
                     data_type=data_type,
                     sample_values=sample_values[:10] if sample_values else None,
@@ -170,6 +223,10 @@ class MetadataGenerator:
                     cardinality=cardinality,
                     table_context=table_context,
                 )
+
+                # Extract aliases and description from result
+                aliases = metadata.get("aliases", [])
+                description = metadata.get("description", "")
 
                 # Create ColumnMetadata object
                 column_metadata = ColumnMetadata(
@@ -194,7 +251,10 @@ class MetadataGenerator:
                 self.dynamodb.save_column_metadata(column_metadata)
                 logger.info(f"Saved column {column_name}")
 
-            # Step 6: Save table-level metadata
+            # Step 6: Auto-detect search mode based on schema
+            detected_search_mode = self.detect_search_mode(table_schema)
+
+            # Step 7: Save table-level metadata
             table_metadata = TableMetadata(
                 catalog_schema_table=catalog_schema_table,  # CHANGED
                 last_updated=datetime.now(),
@@ -203,20 +263,23 @@ class MetadataGenerator:
                 schema_status=SchemaStatus.CURRENT,
                 schema_change_detected_at=None,
                 schema_changes=None,
+                enrichment_status=EnrichmentStatus.COMPLETED,
+                enrichment_timestamp=datetime.now(),
+                search_mode=detected_search_mode,  # Auto-detected
             )
 
             self.dynamodb.save_table_metadata(table_metadata)
 
             logger.info(
-                f"✅ Successfully generated metadata for: {catalog_schema_table}"
+                f"✅ Successfully generated metadata for: {catalog_schema_table} (search_mode: {detected_search_mode})"
             )
 
-            # Update status to IN_PROGRESS before starting thread (so frontend sees it immediately)
+            # Step 8: Update status to IN_PROGRESS before starting thread (so frontend sees it immediately)
             self.dynamodb.update_relationship_detection_status(
                 catalog_schema_table, RelationshipDetectionStatus.IN_PROGRESS
             )
 
-            # Start relationship detection in background
+            # Step 9: Start relationship detection in background
             table_identifier = f"{catalog}#{schema}#{table_name}"
             start_relationship_detection_task(
                 table_identifier=table_identifier,
@@ -231,6 +294,11 @@ class MetadataGenerator:
             logger.error(
                 f"❌ Failed to generate metadata for {catalog}.{schema}.{table_name}: {e}",
                 exc_info=True,
+            )
+            # Mark enrichment as failed
+            catalog_schema_table = f"{catalog}.{schema}.{table_name}"
+            self.dynamodb.update_enrichment_status(
+                catalog_schema_table, EnrichmentStatus.FAILED, error_message=str(e)
             )
             return False
 

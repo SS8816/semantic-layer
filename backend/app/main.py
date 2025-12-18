@@ -5,7 +5,7 @@ FastAPI application entry point
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, auth, metadata, tables
+from app.api import admin, auth, metadata, tables, search
 from app.api.relationships_api import router as relationships_router
 from app.api.enriched_tables_api import router as enriched_tables_router
 from app.config import settings
@@ -37,6 +37,7 @@ app.include_router(metadata.router)
 app.include_router(admin.router)
 app.include_router(relationships_router)
 app.include_router(enriched_tables_router)
+app.include_router(search.router)
 
 
 @app.on_event("startup")

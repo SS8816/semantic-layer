@@ -8,6 +8,8 @@ from app.services.latlon_detector import latlon_detector
 from app.services.alias_generator import alias_generator
 from app.services.schema_comparator import schema_comparator
 from app.services.metadata_generator import metadata_generator
+from app.services.neptune_service import neptune_service
+from app.services.embedding_service import embedding_service
 
 __all__ = [
     "starburst_service",
@@ -17,4 +19,6 @@ __all__ = [
     "alias_generator",
     "schema_comparator",
     "metadata_generator",
+    "neptune_service",
+    "embedding_service",
 ]

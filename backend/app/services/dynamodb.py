@@ -15,6 +15,8 @@ from botocore.exceptions import ClientError
 from app.config import settings
 from app.models import (
     ColumnMetadata,
+    EnrichmentStatus,
+    NeptuneImportStatus,
     RelationshipDetectionStatus,
     SchemaChange,
     SchemaStatus,
@@ -127,7 +129,12 @@ class DynamoDBService:
                 "row_count": table_metadata.row_count,
                 "column_count": table_metadata.column_count,
                 "schema_status": table_metadata.schema_status.value,
+                "enrichment_status": table_metadata.enrichment_status.value,
                 "relationship_detection_status": table_metadata.relationship_detection_status.value,
+                "neptune_import_status": table_metadata.neptune_import_status.value,
+                "enrichment_retry_count": table_metadata.enrichment_retry_count,
+                "relationship_retry_count": table_metadata.relationship_retry_count,
+                "neptune_retry_count": table_metadata.neptune_retry_count,
             }
 
             if table_metadata.schema_change_detected_at:
@@ -141,6 +148,22 @@ class DynamoDBService:
                     "removed_columns": table_metadata.schema_changes.removed_columns,
                     "type_changes": table_metadata.schema_changes.type_changes,
                 }
+
+            # Add timestamps if present
+            if table_metadata.enrichment_timestamp:
+                item["enrichment_timestamp"] = table_metadata.enrichment_timestamp.isoformat()
+            if table_metadata.relationship_timestamp:
+                item["relationship_timestamp"] = table_metadata.relationship_timestamp.isoformat()
+            if table_metadata.neptune_import_timestamp:
+                item["neptune_import_timestamp"] = table_metadata.neptune_import_timestamp.isoformat()
+
+            # Add error messages if present
+            if table_metadata.enrichment_error:
+                item["enrichment_error"] = table_metadata.enrichment_error
+            if table_metadata.relationship_error:
+                item["relationship_error"] = table_metadata.relationship_error
+            if table_metadata.neptune_import_error:
+                item["neptune_import_error"] = table_metadata.neptune_import_error
 
             item = _convert_floats_to_decimal(item)
             self.table_metadata_table.put_item(Item=item)
@@ -181,6 +204,17 @@ class DynamoDBService:
                     item["schema_change_detected_at"]
                 )
 
+            # Parse timestamps
+            enrichment_timestamp = None
+            if "enrichment_timestamp" in item:
+                enrichment_timestamp = datetime.fromisoformat(item["enrichment_timestamp"])
+            relationship_timestamp = None
+            if "relationship_timestamp" in item:
+                relationship_timestamp = datetime.fromisoformat(item["relationship_timestamp"])
+            neptune_import_timestamp = None
+            if "neptune_import_timestamp" in item:
+                neptune_import_timestamp = datetime.fromisoformat(item["neptune_import_timestamp"])
+
             table_metadata = TableMetadata(
                 catalog_schema_table=item["catalog_schema_table"],  # CHANGED
                 last_updated=last_updated,
@@ -189,9 +223,26 @@ class DynamoDBService:
                 schema_status=SchemaStatus(item.get("schema_status", "CURRENT")),
                 schema_change_detected_at=schema_change_detected_at,
                 schema_changes=schema_changes,
+                enrichment_status=EnrichmentStatus(
+                    item.get("enrichment_status", "not_started")
+                ),
                 relationship_detection_status=RelationshipDetectionStatus(
                     item.get("relationship_detection_status", "not_started")
                 ),
+                neptune_import_status=NeptuneImportStatus(
+                    item.get("neptune_import_status", "not_imported")
+                ),
+                enrichment_timestamp=enrichment_timestamp,
+                relationship_timestamp=relationship_timestamp,
+                neptune_import_timestamp=neptune_import_timestamp,
+                enrichment_retry_count=item.get("enrichment_retry_count", 0),
+                relationship_retry_count=item.get("relationship_retry_count", 0),
+                neptune_retry_count=item.get("neptune_retry_count", 0),
+                enrichment_error=item.get("enrichment_error"),
+                relationship_error=item.get("relationship_error"),
+                neptune_import_error=item.get("neptune_import_error"),
+                search_mode=item.get("search_mode"),
+                custom_instructions=item.get("custom_instructions"),
             )
 
             logger.info(f"Retrieved table metadata for {catalog_schema_table}")
@@ -266,6 +317,20 @@ class DynamoDBService:
                         last_updated=datetime.fromisoformat(item["last_updated"]),
                         row_count=item.get("row_count", 0),
                         column_count=item.get("column_count", 0),
+                        enrichment_status=EnrichmentStatus(
+                            item.get("enrichment_status", "not_started")
+                        ),
+                        relationship_detection_status=RelationshipDetectionStatus(
+                            item.get("relationship_detection_status", "not_started")
+                        ),
+                        neptune_import_status=NeptuneImportStatus(
+                            item.get("neptune_import_status", "not_imported")
+                        ),
+                        neptune_last_imported=datetime.fromisoformat(item["neptune_last_imported"]) if item.get("neptune_last_imported") else None,
+                        relationships_status=RelationshipDetectionStatus(item["relationships_status"]) if item.get("relationships_status") else None,
+                        relationships_count=item.get("relationships_count", 0),
+                        search_mode=item.get("search_mode"),
+                        custom_instructions=item.get("custom_instructions"),
                     )
                 )
 
@@ -349,6 +414,269 @@ class DynamoDBService:
                 f"Failed to update relationship detection status for {catalog_schema_table}: {e}"
             )
             return False
+
+    def get_relationship_detection_status(
+        self, catalog_schema_table: str
+    ) -> Optional[RelationshipDetectionStatus]:
+        """
+        Get only the relationship detection status for a table (lightweight query)
+
+        Args:
+            catalog_schema_table: Table identifier in format "catalog.schema.table"
+
+        Returns:
+            RelationshipDetectionStatus enum value, or None if not found
+        """
+        try:
+            response = self.table_metadata_table.get_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                ProjectionExpression="relationship_detection_status"
+            )
+
+            if "Item" not in response:
+                logger.warning(f"No metadata found for {catalog_schema_table}")
+                return None
+
+            item = response["Item"]
+            status_value = item.get("relationship_detection_status", "not_started")
+
+            return RelationshipDetectionStatus(status_value)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to get relationship detection status for {catalog_schema_table}: {e}"
+            )
+            return None
+
+    def update_enrichment_status(
+        self,
+        catalog_schema_table: str,
+        status: EnrichmentStatus,
+        error_message: Optional[str] = None,
+    ) -> bool:
+        """
+        Update enrichment status for a table
+
+        Args:
+            catalog_schema_table: Full table identifier
+            status: New enrichment status
+            error_message: Optional error message if status is FAILED
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            update_expr = "SET enrichment_status = :status, enrichment_timestamp = :timestamp"
+            expr_values = {
+                ":status": status.value,
+                ":timestamp": datetime.now().isoformat(),
+            }
+
+            if error_message:
+                update_expr += ", enrichment_error = :error"
+                expr_values[":error"] = error_message
+            elif status == EnrichmentStatus.COMPLETED:
+                # Clear error message on success
+                update_expr += " REMOVE enrichment_error"
+
+            self.table_metadata_table.update_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                UpdateExpression=update_expr,
+                ExpressionAttributeValues=expr_values,
+            )
+
+            logger.info(
+                f"Updated enrichment status for {catalog_schema_table} to {status.value}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to update enrichment status for {catalog_schema_table}: {e}"
+            )
+            return False
+
+    def update_neptune_import_status(
+        self,
+        catalog_schema_table: str,
+        status: NeptuneImportStatus,
+        error_message: Optional[str] = None,
+    ) -> bool:
+        """
+        Update Neptune import status for a table
+
+        Args:
+            catalog_schema_table: Full table identifier
+            status: New Neptune import status
+            error_message: Optional error message if status is FAILED
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            update_expr = "SET neptune_import_status = :status, neptune_import_timestamp = :timestamp"
+            expr_values = {
+                ":status": status.value,
+                ":timestamp": datetime.now().isoformat(),
+            }
+
+            if error_message:
+                update_expr += ", neptune_import_error = :error"
+                expr_values[":error"] = error_message
+            elif status == NeptuneImportStatus.IMPORTED:
+                # Clear error message on success
+                update_expr += " REMOVE neptune_import_error"
+
+            self.table_metadata_table.update_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                UpdateExpression=update_expr,
+                ExpressionAttributeValues=expr_values,
+            )
+
+            logger.info(
+                f"Updated Neptune import status for {catalog_schema_table} to {status.value}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to update Neptune import status for {catalog_schema_table}: {e}"
+            )
+            return False
+
+    def increment_retry_count(
+        self,
+        catalog_schema_table: str,
+        operation: str,  # "enrichment", "relationship", or "neptune"
+    ) -> bool:
+        """
+        Increment retry count for a specific operation
+
+        Args:
+            catalog_schema_table: Full table identifier
+            operation: Operation type ("enrichment", "relationship", or "neptune")
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if operation not in ["enrichment", "relationship", "neptune"]:
+                logger.error(f"Invalid operation type: {operation}")
+                return False
+
+            retry_field = f"{operation}_retry_count"
+
+            # Use ADD to increment atomically
+            self.table_metadata_table.update_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                UpdateExpression=f"ADD {retry_field} :inc",
+                ExpressionAttributeValues={":inc": 1},
+            )
+
+            logger.info(
+                f"Incremented {operation} retry count for {catalog_schema_table}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to increment retry count for {catalog_schema_table}: {e}"
+            )
+            return False
+
+    def get_tables_ready_for_neptune_import(self) -> List[TableMetadata]:
+        """
+        Get tables that are ready for Neptune import
+        (enrichment completed, relationships completed, not yet imported to Neptune)
+
+        Returns:
+            List of TableMetadata objects ready for import
+        """
+        try:
+            # Scan for tables with the right status
+            # Note: In production with many tables, consider using a GSI for efficient querying
+            response = self.table_metadata_table.scan()
+            items = _convert_decimals_to_python(response.get("Items", []))
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                response = self.table_metadata_table.scan(
+                    ExclusiveStartKey=response["LastEvaluatedKey"]
+                )
+                items.extend(_convert_decimals_to_python(response.get("Items", [])))
+
+            ready_tables = []
+            for item in items:
+                enrichment_status = item.get("enrichment_status", "not_started")
+                relationship_status = item.get("relationship_detection_status", "not_started")
+                neptune_status = item.get("neptune_import_status", "not_imported")
+
+                # Check if ready for import
+                if (
+                    enrichment_status == "completed"
+                    and relationship_status == "completed"
+                    and neptune_status in ["not_imported", "failed"]
+                ):
+                    # Parse the full metadata
+                    table_metadata = self.get_table_metadata(item["catalog_schema_table"])
+                    if table_metadata:
+                        ready_tables.append(table_metadata)
+
+            logger.info(f"Found {len(ready_tables)} tables ready for Neptune import")
+            return ready_tables
+
+        except Exception as e:
+            logger.error(f"Failed to get tables ready for Neptune import: {e}")
+            return []
+
+    def get_tables_needing_retry(self, operation: str, max_retries: int = 2) -> List[TableMetadata]:
+        """
+        Get tables that have failed an operation and haven't exceeded max retries
+
+        Args:
+            operation: Operation type ("enrichment", "relationship", or "neptune")
+            max_retries: Maximum number of retries allowed (default 2)
+
+        Returns:
+            List of TableMetadata objects that need retry
+        """
+        try:
+            if operation not in ["enrichment", "relationship", "neptune"]:
+                logger.error(f"Invalid operation type: {operation}")
+                return []
+
+            status_field = f"{operation}_status" if operation != "relationship" else "relationship_detection_status"
+            retry_field = f"{operation}_retry_count"
+
+            response = self.table_metadata_table.scan()
+            items = _convert_decimals_to_python(response.get("Items", []))
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                response = self.table_metadata_table.scan(
+                    ExclusiveStartKey=response["LastEvaluatedKey"]
+                )
+                items.extend(_convert_decimals_to_python(response.get("Items", [])))
+
+            retry_tables = []
+            for item in items:
+                status = item.get(status_field, "not_started")
+                retry_count = item.get(retry_field, 0)
+
+                # Check if failed and under retry limit
+                if status == "failed" and retry_count < max_retries:
+                    table_metadata = self.get_table_metadata(item["catalog_schema_table"])
+                    if table_metadata:
+                        retry_tables.append(table_metadata)
+
+            logger.info(
+                f"Found {len(retry_tables)} tables needing retry for {operation}"
+            )
+            return retry_tables
+
+        except Exception as e:
+            logger.error(f"Failed to get tables needing retry for {operation}: {e}")
+            return []
 
     # ========== Column Metadata Operations ==========
 
@@ -451,6 +779,78 @@ class DynamoDBService:
                 f"Failed to get column metadata for {catalog_schema_table}.{column_name}: {e}"
             )
             return None
+
+    def batch_get_column_metadata(
+        self, column_keys: List[tuple[str, str]]
+    ) -> List[ColumnMetadata]:
+        """
+        Batch get column metadata from DynamoDB
+
+        Args:
+            column_keys: List of (catalog_schema_table, column_name) tuples
+
+        Returns:
+            List of ColumnMetadata objects (may be fewer than requested if some don't exist)
+        """
+        try:
+            if not column_keys:
+                return []
+
+            # DynamoDB batch_get_item supports up to 100 items
+            # Split into chunks if needed
+            results = []
+            chunk_size = 100
+
+            for i in range(0, len(column_keys), chunk_size):
+                chunk = column_keys[i:i + chunk_size]
+
+                # Build request items
+                keys = [
+                    {
+                        'catalog_schema_table': table,
+                        'column_name': column
+                    }
+                    for table, column in chunk
+                ]
+
+                response = self.dynamodb.batch_get_item(
+                    RequestItems={
+                        settings.dynamodb_column_metadata_table: {
+                            'Keys': keys
+                        }
+                    }
+                )
+
+                # Process results
+                items = _convert_decimals_to_python(
+                    response.get('Responses', {}).get(settings.dynamodb_column_metadata_table, [])
+                )
+
+                for item in items:
+                    column_metadata = ColumnMetadata(
+                        catalog_schema_table=item["catalog_schema_table"],
+                        column_name=item["column_name"],
+                        data_type=item["data_type"],
+                        column_type=item.get("column_type", "dimension"),
+                        semantic_type=item.get("semantic_type") if item.get("semantic_type") else None,
+                        aliases=item.get("aliases", []),
+                        description=item.get("description", ""),
+                        min_value=item.get("min_value"),
+                        max_value=item.get("max_value"),
+                        avg_value=item.get("avg_value"),
+                        cardinality=item.get("cardinality", 0),
+                        null_count=item.get("null_count", 0),
+                        null_percentage=item.get("null_percentage", 0.0),
+                        sample_values=item.get("sample_values", []),
+                    )
+                    results.append(column_metadata)
+
+            logger.info(f"Batch retrieved {len(results)} column metadata records")
+            return results
+
+        except Exception as e:
+            logger.error(f"Failed to batch get column metadata: {e}")
+            return []
 
     def get_all_columns_for_table(
         self, catalog_schema_table: str
@@ -583,6 +983,53 @@ class DynamoDBService:
             )
             return False
 
+    def update_table_config_fields(
+        self,
+        catalog_schema_table: str,
+        search_mode: Optional[str] = None,
+        custom_instructions: Optional[str] = None,
+    ) -> bool:
+        """
+        Update table configuration fields (search_mode and custom_instructions)
+
+        Args:
+            catalog_schema_table: Full table identifier
+            search_mode: Search mode ('analytics', 'datamining', or None)
+            custom_instructions: Custom SQL examples and LLM usage hints
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            update_parts = []
+            expr_values = {}
+
+            if search_mode is not None:
+                update_parts.append("search_mode = :search_mode")
+                expr_values[":search_mode"] = search_mode if search_mode else None
+
+            if custom_instructions is not None:
+                update_parts.append("custom_instructions = :custom_instructions")
+                expr_values[":custom_instructions"] = custom_instructions if custom_instructions else None
+
+            if not update_parts:
+                return True
+
+            self.table_metadata_table.update_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                UpdateExpression="SET " + ", ".join(update_parts),
+                ExpressionAttributeValues=expr_values,
+            )
+
+            logger.info(f"Updated table config for {catalog_schema_table}")
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to update table config for {catalog_schema_table}: {e}"
+            )
+            return False
+
     def delete_all_columns_for_table(self, catalog_schema_table: str) -> bool:
         """Delete all column metadata for a table"""
         try:
@@ -642,7 +1089,11 @@ class DynamoDBService:
                 column_count=table_metadata.column_count,
                 schema_status=table_metadata.schema_status,
                 schema_changes=table_metadata.schema_changes,
+                enrichment_status=table_metadata.enrichment_status,
                 relationship_detection_status=table_metadata.relationship_detection_status,
+                neptune_import_status=table_metadata.neptune_import_status,
+                search_mode=table_metadata.search_mode,
+                custom_instructions=table_metadata.custom_instructions,
                 columns=columns_dict,
             )
 

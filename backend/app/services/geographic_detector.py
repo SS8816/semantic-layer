@@ -17,7 +17,7 @@ from app.utils.logger import app_logger as logger
 class GeographicDetector:
     """
     Detect semantic type of geographic columns
-    Returns: country, state, city, latitude, longitude, wkt_geometry, geojson_geometry, geometry_type, or None
+    Returns: country, state, city, locality, latitude, longitude, wkt_geometry, geojson_geometry, geometry_type, or None
     """
 
     # Valid geometry types
@@ -54,7 +54,7 @@ class GeographicDetector:
         Detect semantic type for a column
 
         Returns:
-            'country', 'state', 'city', 'latitude', 'longitude',
+            'country', 'state', 'city', 'locality', 'latitude', 'longitude',
             'wkt_geometry', 'geojson_geometry', 'geometry_type', or None
         """
         col_lower = column_name.lower()
@@ -413,43 +413,84 @@ class GeographicDetector:
         self, col_name: str, sample_values: List[Any], cardinality: int
     ) -> Optional[str]:
         """
-        Detect administrative type: 'state' or 'city'
+        Detect administrative type: 'state', 'city', or 'locality'
 
         Returns:
-            'state' for provinces/states, 'city' for cities, None otherwise
+            'state' for provinces/states, 'city' for cities, 'locality' for districts, None otherwise
         """
-        # Pattern-based detection
+        # Pattern-based detection (with underscore support)
+        # Level 2: State/Province
         if any(
             x in col_name
-            for x in ["province", "state", "admin_level2", "admin_l2", "level2"]
+            for x in ["province", "state", "admin_level_2", "admin_level2", "admin_l2", "level_2", "level2"]
         ):
             return "state"
 
+        # Level 3: City/Town
         if any(
             x in col_name
             for x in [
                 "city",
                 "town",
                 "municipality",
+                "admin_level_3",
                 "admin_level3",
                 "admin_l3",
+                "level_3",
                 "level3",
             ]
         ):
             return "city"
 
-        # Content-based detection (only for reasonable cardinality)
-        if 10 <= cardinality <= 5000:
+        # Level 4: District/Locality/Neighborhood
+        if any(
+            x in col_name
+            for x in [
+                "district",
+                "locality",
+                "neighborhood",
+                "neighbourhood",
+                "admin_level_4",
+                "admin_level4",
+                "admin_l4",
+                "level_4",
+                "level4",
+            ]
+        ):
+            return "locality"
+
+        # Content-based detection (extended cardinality range for POI datasets)
+        # Only use for columns that might be administrative (avoid false positives)
+        if 10 <= cardinality <= 200000 and self._looks_like_admin_column(col_name):
             place_match_count = self._count_place_matches(sample_values[:20])
 
             if place_match_count >= 5:
                 # Infer level based on cardinality
-                if cardinality < 200:
+                if cardinality < 500:
                     return "state"
-                else:
+                elif cardinality < 50000:
                     return "city"
+                else:
+                    return "locality"
 
         return None
+
+    def _looks_like_admin_column(self, col_name: str) -> bool:
+        """Check if column name suggests administrative/geographic data"""
+        admin_keywords = [
+            "admin", "region", "area", "zone", "location", "place",
+            "province", "state", "city", "town", "district", "county"
+        ]
+        # Exclude non-geographic columns
+        exclude_keywords = [
+            "type", "category", "feature", "class", "kind", "code",
+            "id", "name", "description", "address", "street"
+        ]
+
+        has_admin_keyword = any(kw in col_name for kw in admin_keywords)
+        has_exclude_keyword = any(kw in col_name for kw in exclude_keywords)
+
+        return has_admin_keyword and not has_exclude_keyword
 
     def _count_place_matches(self, sample_values: List[Any]) -> int:
         """Count how many values match known places (with rate limiting)"""

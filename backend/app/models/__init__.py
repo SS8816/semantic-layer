@@ -7,7 +7,9 @@ from app.models.table import (
     TableWithColumns,
     SchemaStatus,
     SchemaChange,
-    RelationshipDetectionStatus
+    EnrichmentStatus,
+    RelationshipDetectionStatus,
+    NeptuneImportStatus,
 )
 from app.models.column import (
     ColumnMetadata,
@@ -22,10 +24,12 @@ from app.models.api import (
     RefreshMetadataResponse,
     UpdateAliasRequest,
     UpdateAliasResponse,
-    UpdateColumnMetadataRequest,  # NEW - ADD THIS
-    UpdateColumnMetadataResponse,  # NEW - ADD THIS
-    CatalogsResponse,  # NEW - ADD THIS
-    TablesInCatalogResponse,  # NEW - ADD THIS
+    UpdateColumnMetadataRequest,
+    UpdateColumnMetadataResponse,
+    UpdateTableConfigRequest,
+    UpdateTableConfigResponse,
+    CatalogsResponse,
+    TablesInCatalogResponse,
     ErrorResponse
 )
 
@@ -36,7 +40,9 @@ __all__ = [
     "TableWithColumns",
     "SchemaStatus",
     "SchemaChange",
+    "EnrichmentStatus",
     "RelationshipDetectionStatus",
+    "NeptuneImportStatus",
     # Column models
     "ColumnMetadata",
     "ColumnMetadataCreate",
@@ -49,9 +55,11 @@ __all__ = [
     "RefreshMetadataResponse",
     "UpdateAliasRequest",
     "UpdateAliasResponse",
-    "UpdateColumnMetadataRequest",  # NEW
-    "UpdateColumnMetadataResponse",  # NEW
-    "CatalogsResponse",  # NEW
-    "TablesInCatalogResponse",  # NEW
+    "UpdateColumnMetadataRequest",
+    "UpdateColumnMetadataResponse",
+    "UpdateTableConfigRequest",
+    "UpdateTableConfigResponse",
+    "CatalogsResponse",
+    "TablesInCatalogResponse",
     "ErrorResponse",
 ]

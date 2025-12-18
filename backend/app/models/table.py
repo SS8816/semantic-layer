@@ -21,6 +21,22 @@ class RelationshipDetectionStatus(str, Enum):
     FAILED = "failed"
 
 
+class EnrichmentStatus(str, Enum):
+    """Enrichment (table+column metadata generation) status enum"""
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class NeptuneImportStatus(str, Enum):
+    """Neptune Analytics import status enum"""
+    NOT_IMPORTED = "not_imported"
+    IMPORTING = "importing"
+    IMPORTED = "imported"
+    FAILED = "failed"
+
+
 class SchemaChange(BaseModel):
     """Schema change details"""
     new_columns: List[str] = Field(default_factory=list)
@@ -37,7 +53,30 @@ class TableMetadata(BaseModel):
     schema_status: SchemaStatus = SchemaStatus.CURRENT
     schema_change_detected_at: Optional[datetime] = None
     schema_changes: Optional[SchemaChange] = None
+
+    # Operation status tracking
+    enrichment_status: EnrichmentStatus = EnrichmentStatus.NOT_STARTED
     relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
+    neptune_import_status: NeptuneImportStatus = NeptuneImportStatus.NOT_IMPORTED
+
+    # Operation timestamps
+    enrichment_timestamp: Optional[datetime] = None
+    relationship_timestamp: Optional[datetime] = None
+    neptune_import_timestamp: Optional[datetime] = None
+
+    # Retry counts (for worker script)
+    enrichment_retry_count: int = 0
+    relationship_retry_count: int = 0
+    neptune_retry_count: int = 0
+
+    # Error messages (for debugging failed operations)
+    enrichment_error: Optional[str] = None
+    relationship_error: Optional[str] = None
+    neptune_import_error: Optional[str] = None
+
+    # Search configuration
+    search_mode: Optional[str] = None  # "analytics", "datamining", or None (user-defined tag)
+    custom_instructions: Optional[str] = None  # SQL examples and LLM usage hints
     
     class Config:
         json_schema_extra = {
@@ -61,7 +100,14 @@ class TableSummary(BaseModel):
     last_updated: datetime
     row_count: int
     column_count: int = 0
+    enrichment_status: EnrichmentStatus = EnrichmentStatus.NOT_STARTED
     relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
+    neptune_import_status: NeptuneImportStatus = NeptuneImportStatus.NOT_IMPORTED
+    neptune_last_imported: Optional[datetime] = None
+    relationships_status: Optional[RelationshipDetectionStatus] = None
+    relationships_count: int = 0
+    search_mode: Optional[str] = None
+    custom_instructions: Optional[str] = None
     
     class Config:
         json_schema_extra = {
@@ -84,7 +130,11 @@ class TableWithColumns(BaseModel):
     column_count: int = 0
     schema_status: SchemaStatus
     schema_changes: Optional[SchemaChange] = None
+    enrichment_status: EnrichmentStatus = EnrichmentStatus.NOT_STARTED
     relationship_detection_status: RelationshipDetectionStatus = RelationshipDetectionStatus.NOT_STARTED
+    neptune_import_status: NeptuneImportStatus = NeptuneImportStatus.NOT_IMPORTED
+    search_mode: Optional[str] = None
+    custom_instructions: Optional[str] = None
     columns: Dict[str, dict]  # column_name -> column metadata dict
     
     class Config:

@@ -6,6 +6,7 @@ import LeftRail from './components/LeftRail';
 import TableDataViewer from './components/TableDataViewer';
 import MetadataViewer from './components/MetadataViewer';
 import EnrichedTablesPage from './components/EnrichedTablesPage';
+import SemanticSearchPage from './components/SemanticSearchPage';
 import MetadataEditModal from './components/MetadataEditModal';
 import { EmptyState, Spinner } from './components/ui';
 import { Database } from 'lucide-react';
@@ -154,6 +155,27 @@ function App() {
                   onClose={handleCloseEditModal}
                   table={tableToEdit}
                 />
+              </div>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/semantic-search"
+          element={
+            user ? (
+              <div className="flex flex-col h-screen bg-background-light dark:bg-gray-900 transition-theme">
+                {/* Header */}
+                <Header user={user} onLogout={handleLogout} />
+
+                {/* Main Content */}
+                <main className="flex-1 overflow-y-auto">
+                  <div className="max-w-7xl mx-auto p-6">
+                    <SemanticSearchPage />
+                  </div>
+                </main>
               </div>
             ) : (
               <Navigate to="/login" />

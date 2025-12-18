@@ -137,7 +137,7 @@ class DynamoDBRelationshipsService:
                 "confidence": Decimal(str(confidence)),
                 "reasoning": reasoning,
                 "detected_at": datetime.utcnow().isoformat(),
-                "detected_by": "gpt-4o",
+                "detected_by": "gpt-5",
             }
 
             # Add subtype if present
@@ -188,7 +188,7 @@ class DynamoDBRelationshipsService:
                         "confidence": Decimal(str(rel["confidence"])),
                         "reasoning": rel.get("reasoning", ""),
                         "detected_at": datetime.utcnow().isoformat(),
-                        "detected_by": "gpt-4o",
+                        "detected_by": "gpt-5",
                     }
 
                     # Add subtype if present
@@ -281,6 +281,41 @@ class DynamoDBRelationshipsService:
         logger.info(f"Found {len(all_rels)} total relationships for {table_name}")
 
         return all_rels
+
+    def batch_get_relationships_for_tables(
+        self, table_names: List[str]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Batch get all relationships (source and target) for multiple tables
+
+        Args:
+            table_names: List of full table names
+
+        Returns:
+            Dictionary mapping table_name -> list of relationships
+        """
+        try:
+            if not table_names:
+                return {}
+
+            results = {}
+
+            # Query all source relationships
+            for table_name in table_names:
+                source_rels = self.get_relationships_by_source_table(table_name)
+                target_rels = self.get_relationships_by_target_table(table_name)
+                results[table_name] = source_rels + target_rels
+
+            total_rels = sum(len(rels) for rels in results.values())
+            logger.info(
+                f"Batch retrieved {total_rels} relationships for {len(table_names)} tables"
+            )
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Failed to batch get relationships: {e}")
+            return {}
 
     def get_relationships_by_type(
         self,

@@ -229,9 +229,10 @@ FIXED version with better error handling
 import asyncio
 from typing import Any, Dict, List
 
-from app.models import RelationshipDetectionStatus
+from app.models import NeptuneImportStatus, RelationshipDetectionStatus
 from app.services.dynamodb import dynamodb_service
 from app.services.dynamodb_relationships import relationships_service
+from app.services.neptune_service import neptune_service
 from app.services.relationship_detector import relationship_detector
 from app.utils.logger import app_logger as logger
 
@@ -412,6 +413,43 @@ async def detect_and_store_relationships(
         dynamodb_service.update_relationship_detection_status(
             full_table_name, RelationshipDetectionStatus.COMPLETED
         )
+
+        # ========== PHASE 2: AUTO-IMPORT TO NEPTUNE ==========
+        # After relationship detection completes successfully, automatically import to Neptune
+        logger.info(f"🚀 Starting automatic Neptune import for {full_table_name}")
+
+        try:
+            # Update status to IMPORTING
+            dynamodb_service.update_neptune_import_status(
+                full_table_name, NeptuneImportStatus.IMPORTING
+            )
+
+            # Perform the import
+            import_success = neptune_service.import_table_to_neptune(full_table_name)
+
+            if import_success:
+                # Update status to IMPORTED
+                dynamodb_service.update_neptune_import_status(
+                    full_table_name, NeptuneImportStatus.IMPORTED
+                )
+                logger.info(f"✅ Successfully imported {full_table_name} to Neptune")
+            else:
+                # Update status to FAILED
+                dynamodb_service.update_neptune_import_status(
+                    full_table_name,
+                    NeptuneImportStatus.FAILED,
+                    error_message="Neptune import returned False"
+                )
+                logger.error(f"❌ Neptune import failed for {full_table_name}")
+
+        except Exception as e:
+            logger.error(f"❌ Exception during Neptune import for {full_table_name}: {e}", exc_info=True)
+            # Update status to FAILED with error message
+            dynamodb_service.update_neptune_import_status(
+                full_table_name,
+                NeptuneImportStatus.FAILED,
+                error_message=str(e)
+            )
 
         return {
             "status": "success",

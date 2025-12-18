@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     azure_openai_deployment: str = "gpt-5"
     azure_openai_api_version: str = "2024-12-01-preview"
 
+    # OpenAI Configuration (for embeddings - uses Azure OpenAI)
+    openai_embedding_model: str = "text-embedding-3-small"  # Deployment name in Azure
+
+    # Neptune Analytics Configuration
+    neptune_endpoint: str = "g-el5ekbpdu0.us-east-1.neptune-graph.amazonaws.com"  # Neptune Analytics hostname
+    neptune_port: int = 443  # HTTPS port for Neptune Analytics
+    neptune_use_iam: bool = True  # Neptune Analytics requires IAM auth
+
     # Session Configuration
     session_secret_key: str
 

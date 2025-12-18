@@ -1,24 +1,43 @@
 """
-Alias and description generation service using HuggingFace models
+Alias and description generation service using Azure OpenAI (primary) and HuggingFace models (fallback)
 """
-from transformers import T5Tokenizer, T5ForConditionalGeneration
 from typing import List, Dict, Any, Optional
 import re
 from app.config import settings
 from app.utils.logger import app_logger as logger
 
+# Optional import for HuggingFace transformers (fallback only)
+try:
+    from transformers import T5Tokenizer, T5ForConditionalGeneration
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    TRANSFORMERS_AVAILABLE = False
+    logger.warning("transformers library not available - HuggingFace fallback disabled")
+
 
 class AliasGenerator:
-    """Service for generating column aliases and descriptions using HuggingFace models"""
-    
+    """Service for generating column aliases and descriptions using Azure OpenAI (GPT-5) and HuggingFace models as fallback"""
+
     def __init__(self):
-        """Initialize HuggingFace models"""
+        """Initialize Azure OpenAI generator and HuggingFace models (lazy loaded)"""
         self.alias_model = None
         self.alias_tokenizer = None
         self.description_model = None
         self.description_tokenizer = None
         self._models_loaded = False
-        
+
+        # Initialize Azure OpenAI generator
+        self.azure_generator = None
+        self._azure_available = False
+
+        try:
+            from app.services.azure_openai_generator import azure_openai_generator
+            self.azure_generator = azure_openai_generator
+            self._azure_available = True
+            logger.info("Azure OpenAI generator available for metadata generation")
+        except Exception as e:
+            logger.warning(f"Azure OpenAI not available, will use HuggingFace: {e}")
+
         # Abbreviation dictionary for rule-based expansion
         self.abbreviations = {
             'addr': 'Address',
@@ -61,33 +80,94 @@ class AliasGenerator:
             'pvid': 'ID',
             'admin': 'Administrative',
             'km': 'Kilometers',
-            'kms': 'Kilometers'
+            'kms': 'Kilometers',
+            'poi': 'POI',
+            'h24x7': '24/7 Hours'
         }
     
     def load_models(self):
         """Load HuggingFace models (lazy loading)"""
         if self._models_loaded:
             return
-        
+
+        if not TRANSFORMERS_AVAILABLE:
+            logger.warning("transformers library not available, skipping HuggingFace model loading")
+            return
+
         try:
             logger.info(f"Loading alias generation model: {settings.alias_model}")
             self.alias_tokenizer = T5Tokenizer.from_pretrained(settings.alias_model)
             self.alias_model = T5ForConditionalGeneration.from_pretrained(settings.alias_model)
-            
+
             logger.info(f"Loading description generation model: {settings.description_model}")
             self.description_tokenizer = T5Tokenizer.from_pretrained(settings.description_model)
             self.description_model = T5ForConditionalGeneration.from_pretrained(settings.description_model)
-            
+
             self._models_loaded = True
             logger.info("HuggingFace models loaded successfully")
-        
+
         except Exception as e:
             logger.error(f"Failed to load HuggingFace models: {e}")
             logger.warning("Falling back to rule-based alias generation only")
     
+    def generate_aliases_and_description(
+        self,
+        column_name: str,
+        data_type: str,
+        sample_values: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        min_value: Optional[Any] = None,
+        max_value: Optional[Any] = None,
+        cardinality: Optional[int] = None,
+        table_context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate BOTH aliases AND description in a SINGLE call (2x faster!)
+
+        Uses Azure OpenAI GPT-5 to generate both in one API call,
+        reducing latency and cost by ~50%.
+
+        Args:
+            column_name: Name of the column
+            data_type: Data type of the column
+            sample_values: Sample values from the column
+            tags: List of tags (e.g., ['country', 'geographic'])
+            min_value: Minimum value (for numeric columns)
+            max_value: Maximum value (for numeric columns)
+            cardinality: Number of distinct values
+            table_context: Brief description of what the table contains
+
+        Returns:
+            Dict with 'aliases' (List[str]) and 'description' (str)
+        """
+        # Try Azure OpenAI GPT-5 combined generation (FASTEST!)
+        if self._azure_available and self.azure_generator:
+            try:
+                result = self.azure_generator.generate_aliases_and_description(
+                    column_name, data_type, sample_values, tags,
+                    min_value, max_value, cardinality, table_context
+                )
+                if result.get("aliases") and result.get("description"):
+                    logger.info(f"Generated metadata for {column_name} using Azure OpenAI GPT-5 (combined)")
+                    return result
+            except Exception as e:
+                logger.warning(f"Azure OpenAI combined generation failed: {e}, falling back to separate calls")
+
+        # Fallback to separate calls if combined fails
+        aliases = self.generate_aliases(column_name, data_type, sample_values, tags, table_context)
+        description = self.generate_description(
+            column_name, data_type, sample_values, tags,
+            min_value, max_value, cardinality, table_context
+        )
+
+        return {
+            "aliases": aliases,
+            "description": description
+        }
+
     def generate_aliases(
-        self, 
-        column_name: str, 
+        self,
+        column_name: str,
         data_type: str,
         sample_values: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
@@ -95,25 +175,45 @@ class AliasGenerator:
     ) -> List[str]:
         """
         Generate multiple alias suggestions for a column
-        
+
+        Uses Azure OpenAI GPT-5 (primary) with HuggingFace fallback
+
+        NOTE: For better performance, use generate_aliases_and_description()
+
         Args:
             column_name: Name of the column
             data_type: Data type of the column
             sample_values: Sample values from the column
             tags: List of tags (e.g., ['country', 'geographic'])
             table_context: Brief description of what the table contains
-            
+
         Returns:
             List of alias suggestions (3-5 aliases)
         """
         aliases = []
-        
-        # Try AI generation first
+
+        # Try Azure OpenAI GPT-5 first (highest quality)
+        if self._azure_available and self.azure_generator:
+            try:
+                ai_aliases = self.azure_generator.generate_aliases(
+                    column_name,
+                    data_type,
+                    sample_values,
+                    tags,
+                    table_context
+                )
+                if ai_aliases and len(ai_aliases) > 0:
+                    logger.info(f"Generated aliases for {column_name} using Azure OpenAI GPT-5")
+                    return ai_aliases
+            except Exception as e:
+                logger.warning(f"Azure OpenAI alias generation failed: {e}, trying fallback")
+
+        # Try HuggingFace AI generation as fallback
         if self.alias_model and self.alias_tokenizer:
             try:
                 ai_aliases = self._generate_aliases_with_ai(
-                    column_name, 
-                    data_type, 
+                    column_name,
+                    data_type,
                     sample_values,
                     tags,
                     table_context
@@ -122,7 +222,7 @@ class AliasGenerator:
                     return ai_aliases[:5]  # Return top 5
             except Exception as e:
                 logger.warning(f"AI alias generation failed for {column_name}: {e}")
-        
+
         # Fallback to rule-based
         return self._generate_aliases_rule_based(column_name, data_type, tags)
     
@@ -305,7 +405,9 @@ Now generate aliases:"""
     ) -> str:
         """
         Generate a human-readable description for a column
-        
+
+        Uses Azure OpenAI GPT-5 (primary) with HuggingFace and template-based fallbacks
+
         Args:
             column_name: Technical column name
             data_type: Data type of the column
@@ -315,11 +417,30 @@ Now generate aliases:"""
             max_value: Maximum value (for numeric columns)
             cardinality: Number of distinct values
             table_context: Brief description of what the table contains
-            
+
         Returns:
             Description string
         """
-        # Try AI generation first
+        # Try Azure OpenAI GPT-5 first (highest quality)
+        if self._azure_available and self.azure_generator:
+            try:
+                ai_description = self.azure_generator.generate_description(
+                    column_name,
+                    data_type,
+                    sample_values,
+                    tags,
+                    min_value,
+                    max_value,
+                    cardinality,
+                    table_context
+                )
+                if ai_description and len(ai_description) > 20:
+                    logger.info(f"Generated description for {column_name} using Azure OpenAI GPT-5")
+                    return ai_description
+            except Exception as e:
+                logger.warning(f"Azure OpenAI description generation failed: {e}, trying fallback")
+
+        # Try HuggingFace AI generation as fallback
         if self.description_model and self.description_tokenizer:
             try:
                 ai_description = self._generate_description_with_ai(
@@ -335,8 +456,8 @@ Now generate aliases:"""
                 if ai_description and len(ai_description) > 20:
                     return ai_description
             except Exception as e:
-                logger.warning(f"AI description generation failed for {column_name}: {e}")
-        
+                logger.warning(f"HuggingFace description generation failed for {column_name}: {e}")
+
         # Fallback to template-based
         return self._generate_description_template_based(
             column_name,

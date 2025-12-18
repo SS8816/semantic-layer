@@ -1,35 +1,37 @@
 # FastAPI and Server
-fastapi
-uvicorn[standard]
-python-multipart
-pydantic
-pydantic-settings
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+pydantic==2.5.3
+pydantic-settings==2.1.0
 
 # Database
-boto3
-trino
+boto3==1.34.22
+trino==0.328.0
 
 # Data Processing
-pandas
-numpy
+pandas==2.1.4
+numpy==1.26.3
 
-# HuggingFace and ML
-transformers
-sentence-transformers
-torch
+# HuggingFace and ML (Optional - for fallback alias generation)
+transformers==4.36.2
+sentence-transformers==2.2.2
+torch==2.1.2
+
+# Azure OpenAI (for embeddings and GPT-5)
+openai==1.10.0
 
 # Geographic Detection
-pycountry
-geopy
+pycountry==23.12.11
+geopy==2.4.1
+
+# HTTP Client
+requests==2.31.0
 
 # Utilities
-python-dotenv
-sqlparse
-requests
+python-dotenv==1.0.0
+sqlparse==0.4.4
 
-# Logging and Monitoring
-loguru
-pycountry
-geopy
-geonames-cache
-cryptography
+# Logging and Security
+loguru==0.7.2
+cryptography==41.0.7
