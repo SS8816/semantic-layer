@@ -7,29 +7,29 @@ A comprehensive semantic layer system for exploring, analyzing, and managing dat
 The Semantic Layer automatically enriches database tables with rich metadata, discovers relationships between tables using advanced AI models, and provides **natural language semantic search** powered by vector embeddings and Neptune Analytics graph database. It provides a complete semantic understanding of your data landscape.
 
 **Key Capabilities:**
-- 🔍 **Natural Language Semantic Search**: Query tables and columns using natural language (e.g., "POI ID columns")
-- 🎯 **Dual Search Modes**: Analytics mode (table-level) and Data Mining mode (column-level granular search)
-- 🧠 **AI-Powered Metadata Generation**: Automatically generate comprehensive metadata for database tables
-- 🌍 **Geographic Intelligence**: Detect countries, cities, states, coordinates, and geometric data
-- ✍️ **Smart Aliases & Descriptions**: Generate human-readable aliases and descriptions using AI
-- 🔗 **Relationship Discovery**: Discover relationships between tables using Azure OpenAI GPT-5
-- 📊 **Vector Similarity Search**: Neptune Analytics with 2048-dimensional embeddings
-- 🏷️ **Configurable Search Tags**: Tag tables as "Analytics" or "Data Mining" for optimized search results
-- 🔄 **Schema Change Monitoring**: Track schema changes with real-time alerts
-- 💻 **Intuitive UI**: Visualize table data, metadata, and relationships in a beautiful React interface
+-  **Natural Language Semantic Search**: Query tables and columns using natural language (e.g., "POI ID columns")
+-  **Dual Search Modes**: Analytics mode (table-level) and Data Mining mode (column-level granular search)
+-  **AI-Powered Metadata Generation**: Automatically generate comprehensive metadata for database tables
+-  **Geographic Intelligence**: Detect countries, cities, states, coordinates, and geometric data
+-  **Smart Aliases & Descriptions**: Generate human-readable aliases and descriptions using AI
+-  **Relationship Discovery**: Discover relationships between tables using Azure OpenAI GPT-5
+-  **Vector Similarity Search**: Neptune Analytics with 2048-dimensional embeddings
+-  **Configurable Search Tags**: Tag tables as "Analytics" or "Data Mining" for optimized search results
+-  **Schema Change Monitoring**: Track schema changes with real-time alerts
+-  **Intuitive UI**: Visualize table data, metadata, and relationships in a beautiful React interface
 
 ## Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                      React Frontend                             │
-│    (Browse, Semantic Search, Enriched Tables, Metadata)         │
+│                      React Frontend                            │
+│    (Browse, Semantic Search, Enriched Tables, Metadata)        │
 └─────────────────────────┬──────────────────────────────────────┘
                           │ REST API
 ┌─────────────────────────┴──────────────────────────────────────┐
-│                     FastAPI Backend                             │
+│                     FastAPI Backend                            │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Services:                                                │  │
+│  │  Services:                                               │  │
 │  │  - Semantic Search (Neptune vector similarity)           │  │
 │  │  - Embedding Service (Azure OpenAI text-embedding)       │  │
 │  │  - Metadata Generator (orchestrator)                     │  │
@@ -64,7 +64,7 @@ The Semantic Layer automatically enriches database tables with rich metadata, di
 
 ## Features
 
-### 🔍 Semantic Search (NEW!)
+###  Semantic Search (NEW!)
 
 **Natural Language Querying:**
 - Search tables and columns using plain English (e.g., "geographic data", "customer IDs")
@@ -97,7 +97,7 @@ The Semantic Layer automatically enriches database tables with rich metadata, di
 - Real-time updates via Neptune graph sync
 - Query validation and vagueness detection
 
-### 🎯 Metadata Generation
+###  Metadata Generation
 
 **Automatic Table Enrichment:**
 - Statistical analysis (min, max, avg, cardinality, null counts)
@@ -119,7 +119,7 @@ The Semantic Layer automatically enriches database tables with rich metadata, di
 - Combined generation (2x faster than separate calls)
 - Fallback to rule-based generation for reliability
 
-### 🔗 Relationship Discovery
+###  Relationship Discovery
 
 **Intelligent Detection:**
 - Azure OpenAI GPT-5 relationship analysis
@@ -133,7 +133,7 @@ The Semantic Layer automatically enriches database tables with rich metadata, di
 - Real-time status updates in UI
 - Can navigate away and return later
 
-### 🏷️ Configuration & Tagging
+###  Configuration & Tagging
 
 **Search Mode Tags:**
 - Tag tables as "Analytics" or "Data Mining"
@@ -146,7 +146,7 @@ The Semantic Layer automatically enriches database tables with rich metadata, di
 - Stored in both DynamoDB and Neptune
 - Displayed in search results
 
-### 💻 Frontend Features
+###  Frontend Features
 
 **Semantic Search Page:**
 - Natural language query input
@@ -333,7 +333,7 @@ semantic-layer/
 ├── backend/
 │   ├── app/
 │   │   ├── api/                    # API endpoints
-│   │   │   ├── search.py          # Semantic search (NEW!)
+│   │   │   ├── search.py          # Semantic search 
 │   │   │   ├── tables.py          # Table listing and data
 │   │   │   ├── metadata.py        # Metadata CRUD + Neptune sync
 │   │   │   ├── relationships_api.py # Relationship queries
@@ -345,15 +345,15 @@ semantic-layer/
 │   │   │   ├── column.py          # Column metadata models
 │   │   │   └── api.py             # API request/response models
 │   │   ├── services/              # Business logic
-│   │   │   ├── embedding_service.py       # Azure OpenAI embeddings (NEW!)
-│   │   │   ├── neptune_service.py         # Neptune graph operations (NEW!)
+│   │   │   ├── embedding_service.py       # Azure OpenAI embeddings 
+│   │   │   ├── neptune_service.py         # Neptune graph operations 
 │   │   │   ├── metadata_generator.py      # Main orchestrator
 │   │   │   ├── relationship_detector.py   # Azure OpenAI relationships
 │   │   │   ├── relationship_tasks.py      # Background thread runner
 │   │   │   ├── geographic_detector.py     # Geographic detection
 │   │   │   ├── column_type_detector.py    # Column classification
 │   │   │   ├── alias_generator.py         # AI alias generation
-│   │   │   ├── azure_openai_generator.py  # Azure OpenAI wrapper (NEW!)
+│   │   │   ├── azure_openai_generator.py  # Azure OpenAI wrapper 
 │   │   │   ├── dynamodb.py                # DynamoDB operations
 │   │   │   ├── dynamodb_relationships.py  # Relationship storage
 │   │   │   ├── starburst.py               # Trino/Starburst client
@@ -372,7 +372,7 @@ semantic-layer/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── SemanticSearchPage.jsx    # Semantic search UI (NEW!)
+│   │   │   ├── SemanticSearchPage.jsx    # Semantic search UI 
 │   │   │   ├── MetadataViewer.jsx         # Metadata viewer + tag editor
 │   │   │   ├── EnrichedTablesPage.jsx     # Table listing
 │   │   │   ├── RelationshipsViewer.jsx    # Relationship display
@@ -575,21 +575,6 @@ GET    /api/relationships/{catalog}/{schema}/{table}  # All relationships
 - Reduces noise in results
 - Configurable thresholds in code (lines 192-193 in search.py)
 
-**Caching:**
-- Consider caching query embeddings for repeated searches
-- Neptune results are not cached (always fresh from graph)
-- DynamoDB metadata is fetched on-demand
-
-## Contributing
-
-This is an internal company tool. For contributions:
-
-1. Create a feature branch from main
-2. Make your changes with clear commit messages
-3. Test thoroughly (unit tests, integration tests, manual testing)
-4. Submit a pull request with detailed description
-5. Ensure all tests pass and no regressions
-
 ## Support
 
 For questions or issues:
@@ -610,5 +595,3 @@ For questions or issues:
 ---
 
 **Built by:** shubham.singh@here.com
-**Project Type:** Intern Project - Analytics Foundation Team
-**Company:** HERE Technologies
