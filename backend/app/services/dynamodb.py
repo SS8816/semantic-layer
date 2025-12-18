@@ -1030,6 +1030,67 @@ class DynamoDBService:
             )
             return False
 
+    def update_table_metadata_fields(
+        self,
+        catalog_schema_table: str,
+        fields: Dict[str, any]
+    ) -> bool:
+        """
+        Generic method to update any table metadata fields (for worker script)
+
+        Args:
+            catalog_schema_table: Full table identifier
+            fields: Dictionary of field_name -> value to update
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not fields:
+                return True
+
+            update_parts = []
+            expr_values = {}
+
+            for idx, (field_name, value) in enumerate(fields.items()):
+                placeholder = f":val{idx}"
+                update_parts.append(f"{field_name} = {placeholder}")
+                expr_values[placeholder] = value
+
+            self.table_metadata_table.update_item(
+                Key={"catalog_schema_table": catalog_schema_table},
+                UpdateExpression="SET " + ", ".join(update_parts),
+                ExpressionAttributeValues=expr_values,
+            )
+
+            logger.info(f"Updated {len(fields)} fields for {catalog_schema_table}")
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to update table metadata fields for {catalog_schema_table}: {e}"
+            )
+            return False
+
+    def update_table_metadata_field(
+        self,
+        catalog_schema_table: str,
+        field_name: str,
+        value: any
+    ) -> bool:
+        """
+        Update a single table metadata field (for worker script)
+
+        Args:
+            catalog_schema_table: Full table identifier
+            field_name: Name of the field to update
+            value: New value
+
+        Returns:
+            True if successful, False otherwise
+        """
+        return self.update_table_metadata_fields(catalog_schema_table, {field_name: value})
+
     def delete_all_columns_for_table(self, catalog_schema_table: str) -> bool:
         """Delete all column metadata for a table"""
         try:
