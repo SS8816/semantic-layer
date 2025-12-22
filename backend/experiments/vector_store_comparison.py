@@ -143,15 +143,16 @@ def sanitize_metadata_for_chroma(metadata: Dict[str, Any]) -> Dict[str, Any]:
     """
     Sanitize metadata for Chroma by converting unsupported types to strings
 
-    Chroma only accepts: str, int, float, bool, None
+    Chroma only accepts: str, int, float, bool (NOT None!)
     We need to convert: datetime, lists, dicts, enums to strings
     """
     from datetime import datetime
 
     sanitized = {}
     for key, value in metadata.items():
+        # Skip None values entirely - Chroma doesn't handle them well
         if value is None:
-            sanitized[key] = None
+            continue
         elif isinstance(value, (str, int, float, bool)):
             sanitized[key] = value
         elif isinstance(value, datetime):
