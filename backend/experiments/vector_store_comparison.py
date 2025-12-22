@@ -424,13 +424,22 @@ def print_comparison_table(query: str, results_by_store: Dict[str, List[Dict[str
 
 def save_results(results: Dict[str, Any], output_dir: str = "experiments/results"):
     """Save comparison results to JSON file"""
+    from datetime import datetime
+
+    class DateTimeEncoder(json.JSONEncoder):
+        """Custom JSON encoder that converts datetime objects to ISO format strings"""
+        def default(self, obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            return super().default(obj)
+
     os.makedirs(output_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = os.path.join(output_dir, f"comparison_{timestamp}.json")
 
     with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
+        json.dump(results, f, indent=2, cls=DateTimeEncoder)
 
     print(f"\n💾 Results saved to: {output_file}")
 
