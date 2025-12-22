@@ -29,14 +29,94 @@ from app.services.embedding_service import embedding_service
 from experiments.chunking_strategies import get_strategy, STRATEGIES
 
 
+# ============= Embedding Generators =============
+
+class EmbeddingGenerator:
+    """Base class for embedding generators"""
+
+    def __init__(self, name: str, dimension: int):
+        self.name = name
+        self.dimension = dimension
+
+    def generate(self, text: str, is_query: bool = False) -> List[float]:
+        """Generate embedding for text"""
+        raise NotImplementedError
+
+    def generate_batch(self, texts: List[str], is_query: bool = False) -> List[List[float]]:
+        """Generate embeddings for multiple texts"""
+        return [self.generate(text, is_query) for text in texts]
+
+
+class AzureOpenAIEmbeddingGenerator(EmbeddingGenerator):
+    """Azure OpenAI embedding generator (current production)"""
+
+    def __init__(self):
+        super().__init__("Azure-OpenAI-text-embedding-3-small", 1536)
+        self.service = embedding_service
+
+    def generate(self, text: str, is_query: bool = False) -> List[float]:
+        """Generate embedding using Azure OpenAI"""
+        return self.service.generate_embedding(text)
+
+
+class BGEEmbeddingGenerator(EmbeddingGenerator):
+    """BGE embedding generator using sentence-transformers"""
+
+    def __init__(self, model_name: str = "BAAI/bge-base-en-v1.5"):
+        """
+        Initialize BGE model
+
+        Args:
+            model_name: Model to use (bge-small-en-v1.5, bge-base-en-v1.5, bge-large-en-v1.5)
+        """
+        from sentence_transformers import SentenceTransformer
+
+        # Map model name to dimensions
+        dims = {
+            "BAAI/bge-small-en-v1.5": 384,
+            "BAAI/bge-base-en-v1.5": 768,
+            "BAAI/bge-large-en-v1.5": 1024
+        }
+
+        super().__init__(f"BGE-{model_name.split('/')[-1]}", dims.get(model_name, 768))
+
+        print(f"📦 Loading BGE model: {model_name}...")
+        self.model = SentenceTransformer(model_name)
+        print(f"✅ BGE model loaded ({self.dimension} dimensions)")
+
+    def generate(self, text: str, is_query: bool = False) -> List[float]:
+        """
+        Generate embedding using BGE
+
+        IMPORTANT: BGE requires instruction prefix for queries!
+        - Queries: "Represent this sentence for searching relevant passages: {text}"
+        - Documents: No prefix needed
+        """
+        if is_query:
+            # Add BGE query instruction prefix
+            text = f"Represent this sentence for searching relevant passages: {text}"
+
+        # Generate embedding (normalized by default in BGE models)
+        embedding = self.model.encode(text, normalize_embeddings=True)
+        return embedding.tolist()
+
+    def generate_batch(self, texts: List[str], is_query: bool = False) -> List[List[float]]:
+        """Generate embeddings for multiple texts efficiently"""
+        if is_query:
+            texts = [f"Represent this sentence for searching relevant passages: {text}" for text in texts]
+
+        embeddings = self.model.encode(texts, normalize_embeddings=True, show_progress_bar=True)
+        return [emb.tolist() for emb in embeddings]
+
+
 # ============= Vector Store Implementations =============
 
 class VectorStore:
     """Base class for vector stores"""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, dimension: int = 1536):
         self.name = name
-        self.dimension = 1536  # text-embedding-3-small or text-embedding-ada-002
+        self.dimension = dimension
 
     def index_documents(self, documents: List[Dict[str, Any]]):
         """
@@ -68,8 +148,8 @@ class VectorStore:
 class FAISSVectorStore(VectorStore):
     """FAISS vector store implementation"""
 
-    def __init__(self):
-        super().__init__("FAISS")
+    def __init__(self, dimension: int = 1536):
+        super().__init__("FAISS", dimension)
         try:
             import faiss
             self.faiss = faiss
@@ -171,8 +251,8 @@ def sanitize_metadata_for_chroma(metadata: Dict[str, Any]) -> Dict[str, Any]:
 class ChromaVectorStore(VectorStore):
     """Chroma vector store implementation"""
 
-    def __init__(self):
-        super().__init__("Chroma")
+    def __init__(self, dimension: int = 1536):
+        super().__init__("Chroma", dimension)
         try:
             import chromadb
             from chromadb.config import Settings as ChromaSettings
@@ -316,7 +396,8 @@ def load_tables_from_dynamodb(limit: int = None) -> List[Dict[str, Any]]:
 
 def generate_chunks_and_embeddings(
     tables_data: List[Dict[str, Any]],
-    strategy_name: str
+    strategy_name: str,
+    embedding_generator: EmbeddingGenerator
 ) -> List[Dict[str, Any]]:
     """
     Generate chunks and embeddings for all tables using a specific strategy
@@ -324,11 +405,12 @@ def generate_chunks_and_embeddings(
     Args:
         tables_data: List of table data from DynamoDB
         strategy_name: Name of chunking strategy to use
+        embedding_generator: Embedding generator to use
 
     Returns:
         List of documents with embeddings ready for indexing
     """
-    print(f"\n📝 Generating chunks using '{strategy_name}' strategy...")
+    print(f"\n📝 Generating chunks using '{strategy_name}' strategy with {embedding_generator.name}...")
 
     strategy = get_strategy(strategy_name)
     all_documents = []
@@ -343,8 +425,8 @@ def generate_chunks_and_embeddings(
         # Generate embeddings for each chunk
         for chunk in chunks:
             try:
-                # Generate embedding
-                embedding = embedding_service.generate_embedding(chunk['text'])
+                # Generate embedding (documents, not queries)
+                embedding = embedding_generator.generate(chunk['text'], is_query=False)
 
                 all_documents.append({
                     'id': chunk['id'],
@@ -367,6 +449,7 @@ def generate_chunks_and_embeddings(
 def run_query_test(
     query: str,
     vector_stores: List[VectorStore],
+    embedding_generator: EmbeddingGenerator,
     k: int = 10
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -375,13 +458,14 @@ def run_query_test(
     Args:
         query: Natural language query
         vector_stores: List of vector stores to query
+        embedding_generator: Embedding generator to use
         k: Number of results to return
 
     Returns:
         Dict mapping store name to results
     """
-    # Generate query embedding
-    query_embedding = embedding_service.generate_embedding(query)
+    # Generate query embedding (mark as query for BGE instruction prefix)
+    query_embedding = embedding_generator.generate(query, is_query=True)
 
     results = {}
     for store in vector_stores:
@@ -479,6 +563,13 @@ def main():
         default=10,
         help='Number of results to return per query'
     )
+    parser.add_argument(
+        '--embedding',
+        type=str,
+        default='azure',
+        choices=['azure', 'bge-small', 'bge-base'],
+        help='Embedding model to use: azure (OpenAI), bge-small (384d), bge-base (768d)'
+    )
 
     args = parser.parse_args()
 
@@ -494,7 +585,18 @@ def main():
     else:
         strategy_names = [args.strategy.lower()]
 
+    # Initialize embedding generator
+    if args.embedding == 'azure':
+        embedding_generator = AzureOpenAIEmbeddingGenerator()
+    elif args.embedding == 'bge-small':
+        embedding_generator = BGEEmbeddingGenerator("BAAI/bge-small-en-v1.5")
+    elif args.embedding == 'bge-base':
+        embedding_generator = BGEEmbeddingGenerator("BAAI/bge-base-en-v1.5")
+    else:
+        raise ValueError(f"Unknown embedding model: {args.embedding}")
+
     print("🚀 Vector Store Comparison Experiment")
+    print(f"   Embedding Model: {embedding_generator.name} ({embedding_generator.dimension}d)")
     print(f"   Stores: {', '.join(store_names)}")
     print(f"   Strategies: {', '.join(strategy_names)}")
     print(f"   Queries: {len(args.queries)}")
@@ -517,19 +619,19 @@ def main():
         print(f"{'#' * 120}")
 
         # Generate chunks and embeddings
-        documents = generate_chunks_and_embeddings(tables_data, strategy_name)
+        documents = generate_chunks_and_embeddings(tables_data, strategy_name, embedding_generator)
 
         if not documents:
             print(f"❌ No documents generated for strategy '{strategy_name}'")
             continue
 
-        # Initialize vector stores
+        # Initialize vector stores with correct dimension
         vector_stores = []
         for store_name in store_names:
             if store_name == 'faiss':
-                store = FAISSVectorStore()
+                store = FAISSVectorStore(dimension=embedding_generator.dimension)
             elif store_name == 'chroma':
-                store = ChromaVectorStore()
+                store = ChromaVectorStore(dimension=embedding_generator.dimension)
             else:
                 print(f"⚠️  Unknown store: {store_name}")
                 continue
@@ -543,6 +645,8 @@ def main():
         strategy_results = {
             'strategy': strategy_name,
             'description': STRATEGIES[strategy_name].description,
+            'embedding_model': embedding_generator.name,
+            'embedding_dimension': embedding_generator.dimension,
             'num_documents': len(documents),
             'queries': {}
         }
@@ -550,7 +654,7 @@ def main():
         for query in args.queries:
             print(f"\n🔍 Query: \"{query}\"")
 
-            results_by_store = run_query_test(query, vector_stores, k=args.top_k)
+            results_by_store = run_query_test(query, vector_stores, embedding_generator, k=args.top_k)
             print_comparison_table(query, results_by_store, strategy_name)
 
             strategy_results['queries'][query] = results_by_store
