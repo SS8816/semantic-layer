@@ -236,27 +236,37 @@ def load_tables_from_dynamodb(limit: int = None) -> List[Dict[str, Any]]:
     """
     print("📥 Loading data from DynamoDB...")
 
-    # Scan table metadata
-    table_metadata_items = dynamodb_service.scan_table_metadata()
+    # Get all tables (returns TableSummary objects)
+    table_summaries = dynamodb_service.get_all_tables()
 
     if limit:
-        table_metadata_items = table_metadata_items[:limit]
+        table_summaries = table_summaries[:limit]
 
-    print(f"   Found {len(table_metadata_items)} tables")
+    print(f"   Found {len(table_summaries)} tables")
 
-    # Load columns for each table
+    # Load full metadata and columns for each table
     tables_data = []
-    for table_meta in table_metadata_items:
-        # Convert to dict if needed
-        if hasattr(table_meta, 'dict'):
-            table_dict = table_meta.dict()
-        else:
-            table_dict = table_meta
+    for table_summary in table_summaries:
+        catalog_schema_table = table_summary.catalog_schema_table
 
-        catalog_schema_table = table_dict['catalog_schema_table']
+        # Get full table metadata
+        table_metadata = dynamodb_service.get_table_metadata(catalog_schema_table)
+        if not table_metadata:
+            print(f"   ⚠️  Skipping {catalog_schema_table} - no metadata found")
+            continue
+
+        # Convert to dict
+        if hasattr(table_metadata, 'dict'):
+            table_dict = table_metadata.dict()
+        else:
+            table_dict = table_metadata
 
         # Get columns
         columns = dynamodb_service.get_all_columns_for_table(catalog_schema_table)
+        if not columns:
+            print(f"   ⚠️  Skipping {catalog_schema_table} - no columns found")
+            continue
+
         columns_dicts = []
         for col in columns:
             if hasattr(col, 'dict'):
