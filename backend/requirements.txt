@@ -35,3 +35,7 @@ sqlparse==0.4.4
 # Logging and Security
 loguru==0.7.2
 cryptography==41.0.7
+
+# Vector Stores (for experiments and comparison)
+faiss-cpu==1.7.4
+chromadb==0.4.22
