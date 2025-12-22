@@ -139,6 +139,34 @@ class FAISSVectorStore(VectorStore):
         self.metadata_map = {}
 
 
+def sanitize_metadata_for_chroma(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Sanitize metadata for Chroma by converting unsupported types to strings
+
+    Chroma only accepts: str, int, float, bool, None
+    We need to convert: datetime, lists, dicts, enums to strings
+    """
+    from datetime import datetime
+
+    sanitized = {}
+    for key, value in metadata.items():
+        if value is None:
+            sanitized[key] = None
+        elif isinstance(value, (str, int, float, bool)):
+            sanitized[key] = value
+        elif isinstance(value, datetime):
+            # Convert datetime to ISO format string
+            sanitized[key] = value.isoformat()
+        elif isinstance(value, (list, dict)):
+            # Convert complex types to JSON string (but keep it simple)
+            sanitized[key] = str(value)[:100]  # Truncate to avoid huge strings
+        else:
+            # For enums and other types, convert to string
+            sanitized[key] = str(value)
+
+    return sanitized
+
+
 class ChromaVectorStore(VectorStore):
     """Chroma vector store implementation"""
 
@@ -176,7 +204,9 @@ class ChromaVectorStore(VectorStore):
         ids = [doc['id'] for doc in documents]
         embeddings = [doc['embedding'] for doc in documents]
         documents_text = [doc['text'] for doc in documents]
-        metadatas = [doc.get('metadata', {}) for doc in documents]
+
+        # Sanitize metadata for Chroma (only accepts str, int, float, bool, None)
+        metadatas = [sanitize_metadata_for_chroma(doc.get('metadata', {})) for doc in documents]
 
         # Add to collection
         self.collection.add(
