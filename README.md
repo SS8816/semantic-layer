@@ -593,5 +593,3 @@ For questions or issues:
 - Trino/Starburst for high-performance SQL engine
 
 ---
-
-**Built by:** shubham.singh@here.com
